@@ -1,0 +1,64 @@
+{
+  "name": "evalos",
+  "version": "0.1.0",
+  "description": "Type-safe JEV eval infrastructure for Claude Code and agentic software.",
+  "private": false,
+  "license": "Apache-2.0",
+  "author": "Rikin Shah",
+  "homepage": "https://github.com/rikinshah787/evalos#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rikinshah787/evalos.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rikinshah787/evalos/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "agent-evals",
+    "ai-agents",
+    "opentelemetry",
+    "evals",
+    "jev",
+    "observability",
+    "regression-testing"
+  ],
+  "bin": {
+    "evalos": "./bin/evalos.mjs"
+  },
+  "files": [
+    "app",
+    "bin",
+    ".claude",
+    ".env.example",
+    "CONTRIBUTING.md",
+    "lib",
+    "LICENSE",
+    "scripts",
+    "README.md",
+    "next.config.ts",
+    "tsconfig.json",
+    "eslint.config.mjs"
+  ],
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint app lib scripts next.config.ts eslint.config.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "lucide-react": "0.544.0",
+    "next": "^16.3.5",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.5.0",
+    "@types/react": "19.1.13",
+    "@types/react-dom": "19.1.9",
+    "eslint": "9.35.0",
+    "eslint-config-next": "^16.3.5",
+    "typescript": "5.9.2"
+  }
+}
