@@ -15,13 +15,20 @@
   },
   "keywords": [
     "claude-code",
+    "claude-code-hooks",
     "agent-evals",
+    "agent-evaluation",
     "ai-agents",
+    "ai-agent-testing",
     "opentelemetry",
     "evals",
+    "llm-evals",
+    "llmops",
     "jev",
     "observability",
-    "regression-testing"
+    "regression-testing",
+    "promptfoo",
+    "pytest"
   ],
   "bin": {
     "evalos": "./bin/evalos.mjs"
@@ -32,6 +39,7 @@
     ".claude",
     ".env.example",
     "CONTRIBUTING.md",
+    "docs",
     "lib",
     "LICENSE",
     "scripts",

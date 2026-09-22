@@ -2,9 +2,28 @@
 
 **Type-safe eval infrastructure for Claude Code and agentic software.**
 
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+![Next.js](https://img.shields.io/badge/Next.js-16-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
+![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-ready-654FF0)
+![Claude Code](https://img.shields.io/badge/Claude%20Code-hook-0F766E)
+
+![EvalOS product preview](docs/assets/evalos-preview.svg)
+
 EvalOS turns live agent sessions into traceable **JEV** records: **Judge, Evidence, Verdict**. It sits beside your agent or coding harness, ingests traces, links findings back to evidence, and helps you promote real failures into regression evals.
 
 The first wedge is simple: connect Claude Code, capture sessions, review failures, and build a typed regression dataset without changing how you use Claude Code.
+
+**Search tags:** `#ClaudeCode` `#AgentEvals` `#AIAgents` `#OpenTelemetry` `#JEV` `#Observability` `#RegressionTesting` `#LLMOps`
+
+## What You Get
+
+- Capture Claude Code sessions as eval-ready traces
+- Convert agent failures into typed JEV records
+- Link every verdict to trace evidence
+- Review failures before they become regression tests
+- Export regression cases to JSONL, Promptfoo, or pytest
+- Keep your existing agent and harness
 
 ## Why EvalOS
 
@@ -66,6 +85,24 @@ http://localhost:3001
 ```
 
 If Next chooses another port, use the URL printed by `npm run dev`.
+
+## Star-worthy Demo Flow
+
+```text
+Claude Code session
+        |
+        v
+EvalOS hook captures transcript
+        |
+        v
+JEV record: judge + evidence + verdict
+        |
+        v
+Human confirms failure
+        |
+        v
+Regression case exported for future runs
+```
 
 ## Claude Code Integration
 

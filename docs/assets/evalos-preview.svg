@@ -1,0 +1,67 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" fill="#0B1220"/>
+  <rect x="36" y="36" width="1208" height="648" rx="28" fill="#EEF2F6"/>
+  <rect x="36" y="36" width="1208" height="648" rx="28" stroke="#CBD5E1"/>
+
+  <rect x="72" y="72" width="236" height="576" rx="18" fill="#0F172A"/>
+  <rect x="96" y="100" width="44" height="44" rx="12" fill="#5EEAD4"/>
+  <path d="M111 122H126M118.5 114.5V129.5" stroke="#042F2E" stroke-width="3" stroke-linecap="round"/>
+  <text x="154" y="128" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700">EvalOS</text>
+  <text x="96" y="180" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="14">Type-safe eval infrastructure</text>
+
+  <rect x="96" y="226" width="176" height="42" rx="10" fill="#1E293B"/>
+  <text x="122" y="253" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">Workflow</text>
+  <text x="122" y="312" fill="#CBD5E1" font-family="Arial, Helvetica, sans-serif" font-size="15">Review Queue</text>
+  <text x="122" y="356" fill="#CBD5E1" font-family="Arial, Helvetica, sans-serif" font-size="15">Datasets</text>
+  <text x="122" y="400" fill="#CBD5E1" font-family="Arial, Helvetica, sans-serif" font-size="15">Connectors</text>
+
+  <text x="96" y="570" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="13">Claude Code hook</text>
+  <text x="96" y="594" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="13">OpenTelemetry ingest</text>
+  <text x="96" y="618" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="13">JEV regression exports</text>
+
+  <text x="348" y="120" fill="#0F766E" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="800" letter-spacing="1">JEV.EVAL.V1</text>
+  <text x="348" y="160" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="800">Turn Claude Code sessions</text>
+  <text x="348" y="210" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="800">into typed regression evals.</text>
+  <text x="348" y="248" fill="#475569" font-family="Arial, Helvetica, sans-serif" font-size="18">Capture live agent work, preserve trace evidence, and gate future runs with a typed verdict.</text>
+
+  <rect x="348" y="288" width="850" height="102" rx="16" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <rect x="376" y="316" width="138" height="46" rx="10" fill="#ECFDF5" stroke="#A7F3D0"/>
+  <text x="398" y="345" fill="#0F766E" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">Claude Code</text>
+  <path d="M530 339H592" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+  <path d="M586 333L592 339L586 345" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="610" y="316" width="138" height="46" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+  <text x="643" y="345" fill="#334155" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">JEV record</text>
+  <path d="M764 339H826" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+  <path d="M820 333L826 339L820 345" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="844" y="316" width="138" height="46" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+  <text x="880" y="345" fill="#334155" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">Evidence</text>
+  <path d="M998 339H1060" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+  <path d="M1054 333L1060 339L1054 345" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="1078" y="316" width="92" height="46" rx="10" fill="#0F766E"/>
+  <text x="1104" y="345" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="800">CI gate</text>
+
+  <rect x="348" y="422" width="260" height="180" rx="16" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="374" y="458" fill="#64748B" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700">JUDGE</text>
+  <text x="374" y="494" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="800">deterministic</text>
+  <text x="374" y="526" fill="#475569" font-family="Arial, Helvetica, sans-serif" font-size="15">Versioned evaluator checks</text>
+  <text x="374" y="552" fill="#475569" font-family="Arial, Helvetica, sans-serif" font-size="15">tool errors, loops, missing tools</text>
+
+  <rect x="638" y="422" width="260" height="180" rx="16" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="664" y="458" fill="#64748B" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700">EVIDENCE</text>
+  <text x="664" y="494" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="800">trace linked</text>
+  <text x="664" y="526" fill="#475569" font-family="Arial, Helvetica, sans-serif" font-size="15">traceId, spanId, stepId</text>
+  <text x="664" y="552" fill="#475569" font-family="Arial, Helvetica, sans-serif" font-size="15">source URL and excerpt</text>
+
+  <rect x="928" y="422" width="270" height="180" rx="16" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="954" y="458" fill="#64748B" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700">VERDICT</text>
+  <text x="954" y="494" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="800">pass / fail</text>
+  <text x="954" y="526" fill="#475569" font-family="Arial, Helvetica, sans-serif" font-size="15">Export JSONL, Promptfoo, pytest</text>
+  <text x="954" y="552" fill="#475569" font-family="Arial, Helvetica, sans-serif" font-size="15">Gate future agent releases</text>
+
+  <rect x="348" y="622" width="432" height="42" rx="10" fill="#0F172A"/>
+  <text x="374" y="649" fill="#DBEAFE" font-family="Consolas, Menlo, monospace" font-size="16">npx evalos init &amp;&amp; npx evalos dev</text>
+  <text x="812" y="648" fill="#475569" font-family="Arial, Helvetica, sans-serif" font-size="15">#ClaudeCode #AgentEvals #OpenTelemetry #JEV</text>
+</svg>
