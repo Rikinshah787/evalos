@@ -1,7 +1,9 @@
 import type { AgentRun, EvaluatedRun, EvaluationResult, FailureType, JevEvaluation } from "./types";
 
 export const DEFAULT_EVALUATOR_ID = "evalos.deterministic.agent_run";
-export const DEFAULT_EVALUATOR_VERSION = "0.2.0";
+export const DEFAULT_EVALUATOR_VERSION = "0.3.0";
+
+const LOOP_REPEAT_THRESHOLD = 3;
 
 const negativeSignals = [
   "third time",
@@ -30,7 +32,7 @@ export function evaluateRun(run: AgentRun): EvaluationResult {
   const repeatedTool = detectRepeatedTool(run);
   const hasNegativeSignal = negativeSignals.some((signal) => combined.includes(signal));
   const weakFinalAnswer = lowValueResponses.some((signal) => run.finalOutput.toLowerCase().includes(signal));
-  const riskyCompliance = combined.includes("hipaa certified") || combined.includes("always") || combined.includes("guaranteed");
+  const riskyCompliance = combined.includes("hipaa certified");
   const missingTool = needsTool(run) && !run.steps.some((step) => step.type === "tool_call");
 
   let failureType: FailureType = "none";
@@ -47,7 +49,8 @@ export function evaluateRun(run: AgentRun): EvaluationResult {
     score = 35;
   } else if (repeatedTool) {
     failureType = "loop_detected";
-    reason = "The same tool action repeated several times, suggesting an agent loop.";
+    reason =
+      "The agent repeated the same tool call with the same inputs several times instead of changing strategy.";
     score = 32;
   } else if (riskyCompliance) {
     failureType = "hallucination";
@@ -105,8 +108,34 @@ export function evaluateRuns(runs: AgentRun[]): EvaluatedRun[] {
 }
 
 function detectRepeatedTool(run: AgentRun): boolean {
-  const names = run.steps.filter((step) => step.type === "tool_call").map((step) => step.name);
-  return names.some((name) => names.filter((candidate) => candidate === name).length >= 3);
+  return findLoopFingerprints(run).length > 0;
+}
+
+/** Same tool name + same input, repeated enough times to look stuck. */
+function findLoopFingerprints(run: AgentRun): string[] {
+  const counts = new Map<string, number>();
+
+  for (const step of run.steps) {
+    if (step.type !== "tool_call" && step.type !== "error") continue;
+    const fingerprint = toolFingerprint(step.name, step.input);
+    counts.set(fingerprint, (counts.get(fingerprint) ?? 0) + 1);
+  }
+
+  return [...counts.entries()].filter(([, count]) => count >= LOOP_REPEAT_THRESHOLD).map(([key]) => key);
+}
+
+function toolFingerprint(name: string, input: unknown): string {
+  return `${name}::${stableSerialize(input)}`;
+}
+
+function stableSerialize(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
 function needsTool(run: AgentRun): boolean {
@@ -128,7 +157,8 @@ function buildSuggestedAssertion(failureType: FailureType, run: AgentRun): strin
     wrong_tool: "The agent should select a tool that matches the user's intent.",
     missing_tool_call: "The agent should call the required tool before answering.",
     lost_context: "The agent should preserve context from earlier turns.",
-    loop_detected: "The agent should stop repeated tool actions and choose a new strategy or fail gracefully.",
+    loop_detected:
+      "If a tool call fails or returns the same result, the agent should change inputs or strategy instead of repeating the identical call.",
     user_abandoned: "The agent should resolve the request before the user abandons the conversation.",
     bad_format: "The agent should return output in the requested schema or format.",
     timeout: "The agent should finish within the timeout budget or return a recoverable handoff.",
@@ -141,10 +171,14 @@ function buildSuggestedAssertion(failureType: FailureType, run: AgentRun): strin
 }
 
 function buildEvidence(run: AgentRun, failureType: FailureType): EvaluationResult["evidence"] {
+  const loopFingerprints = failureType === "loop_detected" ? new Set(findLoopFingerprints(run)) : null;
+
   const preferred = run.steps.filter((step) => {
     if (failureType === "tool_error") return step.type === "tool_call" && Boolean(step.error);
     if (failureType === "timeout") return step.error?.toLowerCase().includes("timed out") || step.name.toLowerCase().includes("timeout");
-    if (failureType === "loop_detected") return step.type === "tool_call";
+    if (failureType === "loop_detected" && loopFingerprints) {
+      return (step.type === "tool_call" || step.type === "error") && loopFingerprints.has(toolFingerprint(step.name, step.input));
+    }
     if (failureType === "hallucination") return stringifyEvidence(step.output).toLowerCase().includes("hipaa");
     return step.error || step.output;
   });

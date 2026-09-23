@@ -10,34 +10,36 @@
   <text x="28" y="244" fill="#a1a1aa" font-family="ui-sans-serif, system-ui" font-size="14">Releases</text>
   <text x="280" y="36" fill="#fafafa" font-family="ui-sans-serif, system-ui" font-size="14" font-weight="600">Dashboard</text>
 
-  <text x="640" y="180" text-anchor="middle" fill="#fafafa" font-family="ui-sans-serif, system-ui" font-size="42" font-weight="700">Judge · Evidence · Verdict</text>
-  <text x="640" y="220" text-anchor="middle" fill="#a1a1aa" font-family="ui-sans-serif, system-ui" font-size="16">Turn live agent failures into typed regression tests</text>
+  <text x="640" y="168" text-anchor="middle" fill="#fafafa" font-family="ui-sans-serif, system-ui" font-size="40" font-weight="700">Agent failures → regression tests</text>
+  <text x="640" y="208" text-anchor="middle" fill="#a1a1aa" font-family="ui-sans-serif, system-ui" font-size="16">Local-first JEV for Cursor + Claude Code</text>
 
-  <rect x="340" y="260" width="180" height="88" rx="10" fill="#111114" stroke="#27272a"/>
-  <text x="360" y="290" fill="#2dd4bf" font-family="ui-monospace, monospace" font-size="12">JUDGE</text>
-  <text x="360" y="318" fill="#d4d4d8" font-family="ui-sans-serif, system-ui" font-size="13">deterministic.v0.2</text>
+  <rect x="340" y="248" width="180" height="88" rx="10" fill="#111114" stroke="#27272a"/>
+  <text x="360" y="278" fill="#2dd4bf" font-family="ui-monospace, monospace" font-size="12">JUDGE</text>
+  <text x="360" y="306" fill="#d4d4d8" font-family="ui-sans-serif, system-ui" font-size="13">triage · not a grade</text>
 
-  <rect x="550" y="260" width="180" height="88" rx="10" fill="#111114" stroke="#27272a"/>
-  <text x="570" y="290" fill="#2dd4bf" font-family="ui-monospace, monospace" font-size="12">EVIDENCE</text>
-  <text x="570" y="318" fill="#d4d4d8" font-family="ui-sans-serif, system-ui" font-size="13">step_edit · tool_error</text>
+  <rect x="550" y="248" width="180" height="88" rx="10" fill="#111114" stroke="#27272a"/>
+  <text x="570" y="278" fill="#2dd4bf" font-family="ui-monospace, monospace" font-size="12">EVIDENCE</text>
+  <text x="570" y="306" fill="#d4d4d8" font-family="ui-sans-serif, system-ui" font-size="13">exact step · same inputs</text>
 
-  <rect x="760" y="260" width="180" height="88" rx="10" fill="#111114" stroke="#27272a"/>
-  <text x="780" y="290" fill="#2dd4bf" font-family="ui-monospace, monospace" font-size="12">VERDICT</text>
-  <text x="780" y="318" fill="#d4d4d8" font-family="ui-sans-serif, system-ui" font-size="13">fail · confirm → case</text>
+  <rect x="760" y="248" width="180" height="88" rx="10" fill="#111114" stroke="#27272a"/>
+  <text x="780" y="278" fill="#2dd4bf" font-family="ui-monospace, monospace" font-size="12">VERDICT</text>
+  <text x="780" y="306" fill="#d4d4d8" font-family="ui-sans-serif, system-ui" font-size="13">confirm → CI case</text>
 
-  <rect x="340" y="380" width="600" height="54" rx="12" fill="#111114" stroke="#27272a"/>
-  <text x="370" y="413" fill="#a1a1aa" font-family="ui-sans-serif, system-ui" font-size="14">Connect Cursor · Connect Claude Code · Load demo</text>
-  <rect x="880" y="392" width="40" height="30" rx="8" fill="#2dd4bf"/>
+  <rect x="340" y="368" width="600" height="54" rx="12" fill="#111114" stroke="#27272a"/>
+  <text x="370" y="401" fill="#a1a1aa" font-family="ui-sans-serif, system-ui" font-size="14">Import this Cursor session · Connect hooks · Export JSONL / Promptfoo / pytest</text>
+  <rect x="900" y="380" width="24" height="30" rx="6" fill="#2dd4bf"/>
 
-  <rect x="340" y="460" width="190" height="110" rx="10" fill="#111114" stroke="#27272a"/>
-  <text x="360" y="492" fill="#fafafa" font-family="ui-sans-serif, system-ui" font-size="15" font-weight="600">1. Capture</text>
-  <text x="360" y="520" fill="#a1a1aa" font-family="ui-sans-serif, system-ui" font-size="13">Cursor + Claude Code</text>
+  <rect x="340" y="450" width="190" height="110" rx="10" fill="#111114" stroke="#27272a"/>
+  <text x="360" y="482" fill="#fafafa" font-family="ui-sans-serif, system-ui" font-size="15" font-weight="600">1. Capture</text>
+  <text x="360" y="510" fill="#a1a1aa" font-family="ui-sans-serif, system-ui" font-size="13">Real sessions only</text>
 
-  <rect x="545" y="460" width="190" height="110" rx="10" fill="#111114" stroke="#27272a"/>
-  <text x="565" y="492" fill="#fafafa" font-family="ui-sans-serif, system-ui" font-size="15" font-weight="600">2. Review</text>
-  <text x="565" y="520" fill="#a1a1aa" font-family="ui-sans-serif, system-ui" font-size="13">Evidence-backed JEV</text>
+  <rect x="545" y="450" width="190" height="110" rx="10" fill="#111114" stroke="#27272a"/>
+  <text x="565" y="482" fill="#fafafa" font-family="ui-sans-serif, system-ui" font-size="15" font-weight="600">2. Confirm</text>
+  <text x="565" y="510" fill="#a1a1aa" font-family="ui-sans-serif, system-ui" font-size="13">Human is the judge</text>
 
-  <rect x="750" y="460" width="190" height="110" rx="10" fill="#111114" stroke="#27272a"/>
-  <text x="770" y="492" fill="#fafafa" font-family="ui-sans-serif, system-ui" font-size="15" font-weight="600">3. Protect</text>
-  <text x="770" y="520" fill="#a1a1aa" font-family="ui-sans-serif, system-ui" font-size="13">Export · gate releases</text>
+  <rect x="750" y="450" width="190" height="110" rx="10" fill="#111114" stroke="#27272a"/>
+  <text x="770" y="482" fill="#fafafa" font-family="ui-sans-serif, system-ui" font-size="15" font-weight="600">3. Gate</text>
+  <text x="770" y="510" fill="#a1a1aa" font-family="ui-sans-serif, system-ui" font-size="13">pass · fail · incomplete</text>
+
+  <text x="640" y="620" text-anchor="middle" fill="#71717a" font-family="ui-monospace, monospace" font-size="13">npm i &amp;&amp; npm run dev → localhost:3000</text>
 </svg>

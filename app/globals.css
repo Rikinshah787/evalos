@@ -770,3 +770,245 @@ p {
     margin-top: 18px;
   }
 }
+
+/* Product trace waterfall */
+.trace-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.trace-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+
+.trace-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-soft);
+}
+
+.trace-id {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trace-meta {
+  display: flex;
+  gap: 12px;
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+
+.trace-issue {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.finding-guide {
+  padding: 14px;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+}
+
+.finding-guide-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.finding-guide-title strong {
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.jev-plain {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.jev-plain > div {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-soft);
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.jev-plain strong {
+  font-size: 12px;
+  letter-spacing: -0.01em;
+}
+
+.jev-plain span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+@media (max-width: 980px) {
+  .jev-plain {
+    grid-template-columns: 1fr;
+  }
+}
+
+.trace-waterfall {
+  max-height: min(58vh, 640px);
+  overflow: auto;
+  padding: 8px 10px 12px;
+  display: grid;
+  gap: 2px;
+}
+
+.trace-row {
+  --depth: 0;
+  padding: 8px 6px;
+  border-radius: 8px;
+}
+
+.trace-row.is-evidence {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.trace-row.is-error {
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+.trace-row-main {
+  display: grid;
+  grid-template-columns: 14px 18px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding-left: calc(var(--depth) * 16px);
+}
+
+.trace-rail {
+  width: 10px;
+  height: 100%;
+  border-left: 1px solid var(--line);
+  margin-left: 4px;
+}
+
+.trace-glyph {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--muted);
+}
+
+.trace-glyph.tone-root {
+  background: var(--accent);
+}
+
+.trace-glyph.tone-tool {
+  background: #ea580c;
+}
+
+.trace-glyph.tone-llm {
+  background: #db2777;
+}
+
+.trace-glyph.tone-error {
+  background: var(--danger);
+}
+
+.trace-glyph.tone-message {
+  background: var(--blue);
+}
+
+.trace-label {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.trace-label strong {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trace-label span {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+}
+
+.trace-timing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.trace-alert {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 22%, transparent);
+}
+
+.trace-bar-track {
+  margin: 6px 0 0 calc(40px + var(--depth) * 16px);
+  height: 6px;
+  border-radius: 999px;
+  background: var(--panel-soft);
+  overflow: hidden;
+}
+
+.trace-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.trace-bar.tone-tool {
+  background: #ea580c;
+}
+
+.trace-bar.tone-llm {
+  background: #db2777;
+}
+
+.trace-bar.tone-error {
+  background: var(--danger);
+}
+
+.trace-bar.tone-message {
+  background: var(--blue);
+}
+
+.trace-error {
+  margin: 6px 0 0 calc(40px + var(--depth) * 16px);
+  color: var(--danger);
+  font-size: 12px;
+  font-family: var(--font-mono), monospace;
+}
+
+.trace-review {
+  display: grid;
+  gap: 10px;
+}

@@ -1,7 +1,7 @@
 {
   "name": "evalos",
   "version": "0.1.0",
-  "description": "Type-safe JEV eval infrastructure for Claude Code and agentic software.",
+  "description": "Local-first JEV evals: turn Cursor and Claude Code agent failures into regression tests.",
   "private": false,
   "license": "Apache-2.0",
   "author": "Rikin Shah",
@@ -14,6 +14,8 @@
     "url": "https://github.com/rikinshah787/evalos/issues"
   },
   "keywords": [
+    "cursor",
+    "cursor-hooks",
     "claude-code",
     "claude-code-hooks",
     "agent-evals",
@@ -36,7 +38,10 @@
   "files": [
     "app",
     "bin",
+    "components",
+    "fixtures",
     ".claude",
+    ".cursor",
     ".env.example",
     "CONTRIBUTING.md",
     "db",

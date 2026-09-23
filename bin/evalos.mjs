@@ -26,7 +26,7 @@ if (command === "init") {
             maxCostIncreasePct: 20,
             maxLatencyIncreasePct: 15
           },
-          serverUrl: "http://localhost:3001"
+          serverUrl: "http://localhost:3000"
         },
         null,
         2

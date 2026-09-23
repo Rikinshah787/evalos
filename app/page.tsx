@@ -28,6 +28,7 @@ import { buildAnalytics } from "@/lib/analytics";
 import { evaluateRuns } from "@/lib/evaluator";
 import { exportJsonl, exportPromptfoo, exportPytest, toEvalCase } from "@/lib/exporters";
 import type { AgentRun, EvaluatedRun, ReviewRecord } from "@/lib/types";
+import { TraceWaterfall } from "@/components/traces/TraceWaterfall";
 
 type View = "dashboard" | "inspect" | "runs" | "datasets" | "releases" | "settings";
 type ExportFormat = "jsonl" | "promptfoo" | "pytest";
@@ -183,22 +184,34 @@ export default function Home() {
     }
   }
 
-  async function loadDemo() {
+  async function importCursorSession() {
     setBusy(true);
     setSetupMessage("");
     try {
-      const response = await fetch("/api/demo", { method: "POST" });
-      const payload = (await response.json()) as { runId?: string; error?: { message?: string } };
+      const response = await fetch("/api/setup/cursor/session", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ replace: true })
+      });
+      const payload = (await response.json()) as {
+        runId?: string;
+        steps?: number;
+        messages?: number;
+        toolCalls?: number;
+        error?: { message?: string };
+      };
       if (!response.ok) {
-        setSetupMessage(payload.error?.message ?? "Could not load demo.");
+        setSetupMessage(payload.error?.message ?? "Could not import this Cursor session.");
         return;
       }
       await refreshRuns();
       if (payload.runId) setSelectedRunId(payload.runId);
       setView("inspect");
-      setSetupMessage("Demo failure loaded. Confirm it to create a regression case.");
+      setSetupMessage(
+        `Imported this Cursor session: ${payload.messages ?? 0} user turns, ${payload.toolCalls ?? 0} tool calls, ${payload.steps ?? 0} trace steps.`
+      );
     } catch (error) {
-      setSetupMessage(error instanceof Error ? error.message : "Could not load demo.");
+      setSetupMessage(error instanceof Error ? error.message : "Could not import this Cursor session.");
     } finally {
       setBusy(false);
     }
@@ -266,8 +279,8 @@ export default function Home() {
   function runComposerAction() {
     const text = composer.trim().toLowerCase();
     if (!text) return;
-    if (text.includes("demo")) {
-      void loadDemo();
+    if (text.includes("session") || text.includes("import this") || text.includes("capture")) {
+      void importCursorSession();
     } else if (text.includes("claude")) {
       void connectClaudeCode();
     } else if (text.includes("cursor") || text.includes("connect")) {
@@ -348,8 +361,8 @@ export default function Home() {
             <button className="icon-button" type="button" title="New inspect session" onClick={() => setView("dashboard")}>
               <Plus size={16} />
             </button>
-            <button className="button primary" type="button" disabled={busy} onClick={() => void loadDemo()}>
-              Load demo
+            <button className="button primary" type="button" disabled={busy} onClick={() => void importCursorSession()}>
+              Import this session
             </button>
           </div>
         </header>
@@ -369,7 +382,7 @@ export default function Home() {
               onComposerSubmit={runComposerAction}
               onConnectCursor={() => void connectCursor()}
               onConnectClaude={() => void connectClaudeCode()}
-              onDemo={() => void loadDemo()}
+              onImportSession={() => void importCursorSession()}
               onInspect={() => setView("inspect")}
               onImport={() => setView("settings")}
             />
@@ -396,7 +409,7 @@ export default function Home() {
                   expectedBehavior: value
                 });
               }}
-              onLoadDemo={() => void loadDemo()}
+              onLoadSession={() => void importCursorSession()}
             />
           ) : null}
 
@@ -475,7 +488,7 @@ function DashboardView({
   onComposerSubmit,
   onConnectCursor,
   onConnectClaude,
-  onDemo,
+  onImportSession,
   onInspect,
   onImport
 }: {
@@ -491,21 +504,21 @@ function DashboardView({
   onComposerSubmit: () => void;
   onConnectCursor: () => void;
   onConnectClaude: () => void;
-  onDemo: () => void;
+  onImportSession: () => void;
   onInspect: () => void;
   onImport: () => void;
 }) {
   return (
     <div className="hero-center">
       <h2>
-        Failures become regression tests with{" "}
+        Fail once. Never fail the same way twice.{" "}
         <span className="inspect-pill">
           <Eye size={14} /> JEV
         </span>
       </h2>
       <p>
-        Capture Cursor or Claude Code sessions, attach evidence to every verdict, and promote confirmed failures into
-        durable eval cases — without owning the agent runtime.
+        Capture real Cursor or Claude Code sessions, attach evidence to every finding, and promote only{" "}
+        <strong>confirmed</strong> failures into durable eval cases. Automatic scores are triage signals — humans decide.
       </p>
 
       <div className="jev-keys" aria-label="JEV model">
@@ -532,21 +545,21 @@ function DashboardView({
       </div>
 
       <div className="prompt-stack">
+        <button className="prompt-card" type="button" disabled={busy} onClick={onImportSession}>
+          <span><Eye size={16} /></span>
+          Import this Cursor chat as a real traced run
+        </button>
         <button className="prompt-card" type="button" disabled={busy || cursorConnected} onClick={onConnectCursor}>
           <span><CheckCircle2 size={16} /></span>
-          Connect this Cursor workspace to EvalOS
+          Connect Cursor hooks for future sessions
         </button>
         <button className="prompt-card" type="button" disabled={busy || claudeConnected} onClick={onConnectClaude}>
           <span><CheckCircle2 size={16} /></span>
           Connect Claude Code (optional second source)
         </button>
-        <button className="prompt-card" type="button" disabled={busy} onClick={onDemo}>
-          <span><TriangleAlert size={16} /></span>
-          Load a demo failure with highlighted evidence
-        </button>
         <button className="prompt-card" type="button" onClick={onInspect}>
-          <span><Eye size={16} /></span>
-          Inspect pending findings and confirm a case
+          <span><TriangleAlert size={16} /></span>
+          Open Inspect to review evidence
         </button>
         <button className="prompt-card" type="button" onClick={onImport}>
           <span><Upload size={16} /></span>
@@ -562,7 +575,7 @@ function DashboardView({
           onKeyDown={(event) => {
             if (event.key === "Enter") onComposerSubmit();
           }}
-          placeholder="Connect Cursor, connect Claude Code, load demo..."
+          placeholder="Import this session, connect Cursor, connect Claude Code..."
           aria-label="Quick action"
         />
         <button className="composer-send" type="button" onClick={onComposerSubmit} aria-label="Run action">
@@ -575,13 +588,13 @@ function DashboardView({
       <div className="setup-grid">
         <article className="setup-card">
           <h3>1. Capture</h3>
-          <p>Connect Cursor for this chat, Claude Code for terminal sessions, or both.</p>
+          <p>Import this live Cursor transcript, or enable hooks for the next agent stop.</p>
           <div className="actions left-actions">
-            <button className="button primary" type="button" disabled={busy || cursorConnected} onClick={onConnectCursor}>
-              {cursorConnected ? "Cursor on" : "Connect Cursor"}
+            <button className="button primary" type="button" disabled={busy} onClick={onImportSession}>
+              Import this session
             </button>
-            <button className="button" type="button" disabled={busy || claudeConnected} onClick={onConnectClaude}>
-              {claudeConnected ? "Claude on" : "Connect Claude Code"}
+            <button className="button" type="button" disabled={busy || cursorConnected} onClick={onConnectCursor}>
+              {cursorConnected ? "Cursor on" : "Connect Cursor"}
             </button>
           </div>
         </article>
@@ -595,8 +608,8 @@ function DashboardView({
         <article className="setup-card">
           <h3>3. Protect</h3>
           <p>Confirmed findings become draft cases you can export to JSONL, Promptfoo, or pytest.</p>
-          <button className="button" type="button" onClick={onDemo}>
-            Try demo now
+          <button className="button" type="button" disabled={busy || claudeConnected} onClick={onConnectClaude}>
+            {claudeConnected ? "Claude on" : "Connect Claude Code"}
           </button>
         </article>
       </div>
@@ -612,7 +625,7 @@ function InspectView({
   onConfirm,
   onReject,
   onExpectedBehaviorChange,
-  onLoadDemo
+  onLoadSession
 }: {
   reviewRuns: EvaluatedRun[];
   selectedRun?: EvaluatedRun;
@@ -621,15 +634,15 @@ function InspectView({
   onConfirm: () => void;
   onReject: () => void;
   onExpectedBehaviorChange: (value: string) => void;
-  onLoadDemo: () => void;
+  onLoadSession: () => void;
 }) {
   if (!selectedRun) {
     return (
       <div className="hero-center">
-        <h2>No findings yet</h2>
-        <p>Load the demo failure or connect Cursor / Claude Code, then come back to Inspect.</p>
-        <button className="button primary" type="button" onClick={onLoadDemo}>
-          Load demo failure
+        <h2>No live runs yet</h2>
+        <p>Import this Cursor chat or connect hooks, then come back to Inspect.</p>
+        <button className="button primary" type="button" onClick={onLoadSession}>
+          Import this Cursor session
         </button>
       </div>
     );
@@ -640,10 +653,10 @@ function InspectView({
   return (
     <div className="inspect-layout">
       <section className="panel">
-        <div className="panel-header">
+            <div className="panel-header">
           <div>
-            <h2>Findings</h2>
-            <p className="subtle">Prioritized by risk and evidence.</p>
+            <h2>Queue</h2>
+            <p className="subtle">Sessions that may need your decision.</p>
           </div>
         </div>
         <div className="run-list">
@@ -670,47 +683,36 @@ function InspectView({
           {reviewRuns.length === 0 ? (
             <div className="empty-state">
               <strong>Inbox clear</strong>
-              <span className="subtle">No open findings. Load a demo or capture a live run.</span>
+              <span className="subtle">No open findings. Import this Cursor session or capture a live run.</span>
             </div>
           ) : null}
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel trace-panel">
         <div className="panel-header">
           <div>
-            <h2>Trace evidence</h2>
-            <p className="subtle">{selectedRun.id}</p>
-          </div>
-          <div className="tags">
-            <span className="tag blue">{selectedRun.evaluation.score}/100</span>
-            <span className="tag">{selectedRun.model ?? "unknown model"}</span>
+            <div className="field-label">Review</div>
+            <h2>What went wrong in this run?</h2>
+            <p className="subtle">
+              Read the finding in plain English, check the highlighted steps, then Confirm or Reject.
+            </p>
           </div>
         </div>
 
-        <div className="trace">
+        <TraceWaterfall
+          run={selectedRun}
+          evidenceStepIds={selectedRun.evaluation.evidence.map((item) => item.stepId)}
+        />
+
+        <div className="trace-review">
           <div className="message">
-            <div className="message-role">finding</div>
-            <p>{selectedRun.evaluation.reason}</p>
-            <p className="subtle detail-line">
-              {selectedRun.evaluation.jev.schema} · {selectedRun.evaluation.evaluatorId}@{selectedRun.evaluation.evaluatorVersion}
-            </p>
+            <div className="message-role">What the user asked</div>
+            <p>{selectedRun.input[0]?.content || "No user input captured."}</p>
           </div>
 
-          {selectedRun.evaluation.evidence.map((item) => (
-            <div className="step" key={`${item.stepId}-${item.stepName}`}>
-              <div className="step-type">
-                {item.stepType} · {item.stepName} · {item.stepId}
-              </div>
-              <p className="subtle detail-line">
-                trace {item.traceId ?? "unknown"} · span {item.spanId ?? "unknown"}
-              </p>
-              <p>{item.quote || "No payload captured."}</p>
-            </div>
-          ))}
-
           <label className="field-label" htmlFor="expected-behavior">
-            Expected behavior
+            What should the agent do next time?
           </label>
           <textarea
             id="expected-behavior"
@@ -722,18 +724,16 @@ function InspectView({
           <div className="actions left-actions">
             <button className="button primary" type="button" onClick={onConfirm}>
               <CheckCircle2 size={16} />
-              Confirm
+              Confirm — keep as a test case
             </button>
             <button className="button" type="button" onClick={onReject}>
               <XCircle size={16} />
-              Reject
+              Reject — false alarm
             </button>
           </div>
-
-          <div className="message">
-            <div className="message-role">final output</div>
-            <p>{selectedRun.finalOutput || "No final output captured."}</p>
-          </div>
+          <p className="subtle">
+            Confirm only if the highlighted steps really show a failure you never want to see again.
+          </p>
         </div>
       </section>
     </div>
@@ -775,7 +775,7 @@ function RunsView({
         {runs.length === 0 ? (
           <div className="empty-state">
             <strong>No runs stored yet</strong>
-            <span className="subtle">Use Dashboard setup to connect Cursor, Claude Code, or load the demo.</span>
+            <span className="subtle">Use Dashboard → Import this session, or connect Cursor / Claude Code.</span>
           </div>
         ) : null}
       </div>
