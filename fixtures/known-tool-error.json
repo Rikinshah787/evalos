@@ -1,0 +1,40 @@
+{
+  "runs": [
+    {
+      "id": "fixture_tool_error_refund",
+      "source": "json",
+      "agentName": "support-agent",
+      "framework": "fixture",
+      "environment": "development",
+      "startedAt": "2026-09-23T12:00:00.000Z",
+      "input": [
+        {
+          "role": "user",
+          "content": "Refund order #48291. Charged twice for broken headphones."
+        }
+      ],
+      "steps": [
+        {
+          "id": "step_root",
+          "traceId": "trace_fixture_refund",
+          "spanId": "span_root",
+          "type": "thought",
+          "name": "agent.run",
+          "output": "Looking up the order before issuing a refund."
+        },
+        {
+          "id": "step_lookup",
+          "traceId": "trace_fixture_refund",
+          "spanId": "span_lookup",
+          "parentSpanId": "span_root",
+          "type": "tool_call",
+          "name": "lookup_order",
+          "input": { "orderId": "48291" },
+          "error": "Missing order id in downstream payment API",
+          "sourceUrl": "fixture://lookup_order"
+        }
+      ],
+      "finalOutput": "I cannot complete the refund right now."
+    }
+  ]
+}

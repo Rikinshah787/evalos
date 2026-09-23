@@ -71,6 +71,7 @@ describe("evaluateRun", () => {
           id: `step_${index}`,
           type: "tool_call",
           name: "browser.click",
+          input: { selector: "#login" },
           output: "clicked login"
         })),
         finalOutput: "I was unable to complete the update."
@@ -79,5 +80,25 @@ describe("evaluateRun", () => {
 
     expect(result.failureType).toBe("loop_detected");
     expect(result.evidence.map((item) => item.stepId)).toEqual(["step_1", "step_2", "step_3"]);
+  });
+
+  it("does not flag a long productive session that reuses tools with different inputs", () => {
+    const result = evaluateRun(
+      baseRun({
+        input: [{ role: "user", content: "Build the EvalOS persistence layer" }],
+        steps: [
+          { id: "a", type: "tool_call", name: "Shell", input: { command: "npm test" } },
+          { id: "b", type: "tool_call", name: "Shell", input: { command: "npm run lint" } },
+          { id: "c", type: "tool_call", name: "Shell", input: { command: "npm run typecheck" } },
+          { id: "d", type: "tool_call", name: "Read", input: { path: "lib/evaluator.ts" } },
+          { id: "e", type: "tool_call", name: "Write", input: { path: "lib/evaluator.ts" } },
+          { id: "f", type: "tool_call", name: "Read", input: { path: "app/page.tsx" } }
+        ],
+        finalOutput: "Persistence and review flow are in place."
+      })
+    );
+
+    expect(result.failureType).toBe("none");
+    expect(result.passed).toBe(true);
   });
 });
