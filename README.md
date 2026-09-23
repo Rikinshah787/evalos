@@ -1,164 +1,138 @@
 # EvalOS
 
-**Type-safe eval infrastructure for Claude Code and agentic software.**
+### Agent failures → typed **JEV** regression tests
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-![Next.js](https://img.shields.io/badge/Next.js-16-black)
+[![CI](https://github.com/Rikinshah787/evalos/actions/workflows/ci.yml/badge.svg)](https://github.com/Rikinshah787/evalos/actions/workflows/ci.yml)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
-![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-ready-654FF0)
+![SQLite](https://img.shields.io/badge/storage-SQLite-0F766E)
+![Cursor](https://img.shields.io/badge/Cursor-hooks-18181b)
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-hook-0F766E)
 
 ![EvalOS product preview](docs/assets/evalos-preview.svg)
 
-EvalOS turns live agent sessions into traceable **JEV** records: **Judge, Evidence, Verdict**. It sits beside your agent or coding harness, ingests traces, links findings back to evidence, and helps you promote real failures into regression evals.
+**EvalOS** is local-first eval infrastructure for agentic software.  
+It captures real Cursor / Claude Code sessions, turns failures into **JEV** records (**Judge · Evidence · Verdict**), and lets you promote confirmed findings into regression cases your harness can run forever.
 
-The first wedge is simple: connect Claude Code, capture sessions, review failures, and build a typed regression dataset without changing how you use Claude Code.
+> Your unit tests prove *code* works.  
+> EvalOS proves the *agent* still solves the failures you already paid for.
 
-**Search tags:** `#ClaudeCode` `#AgentEvals` `#AIAgents` `#OpenTelemetry` `#JEV` `#Observability` `#RegressionTesting` `#LLMOps`
+---
 
-## What You Get
+## Why this exists
 
-- Capture Claude Code sessions as eval-ready traces
-- Convert agent failures into typed JEV records
-- Link every verdict to trace evidence
-- Review failures before they become regression tests
-- Export regression cases to JSONL, Promptfoo, or pytest
-- Keep your existing agent and harness
+Agent failures disappear into chat history. Tomorrow’s model or prompt “fixes” them by accident — until they regress.
 
-## Why EvalOS
+EvalOS makes failures durable:
 
-AI agents are becoming part of the engineering workflow, but their failures are hard to preserve. A normal test suite can tell you whether code passes. It usually cannot tell you whether an agent:
-
-- used the wrong tool,
-- looped on the same action,
-- made an unsupported claim,
-- ignored trace evidence,
-- regressed on a task it previously fixed.
-
-EvalOS gives those failures a durable shape.
+| Without EvalOS | With EvalOS |
+| --- | --- |
+| “It failed once in chat” | Typed `jev.eval.v1` record |
+| Screenshot of a tool error | Evidence linked to exact step / span |
+| Hope the next run is better | Confirmed case → export → release gate |
 
 ```ts
 type JevEvaluation = {
   schema: "jev.eval.v1";
-  judge: JevJudge;
-  evidence: JevEvidence[];
-  verdict: JevVerdict;
+  judge: JevJudge;       // who decided
+  evidence: JevEvidence[]; // what proved it
+  verdict: JevVerdict;   // pass | fail | review
 };
 ```
 
-## Status
+---
 
-EvalOS is an early open-source MVP. It is local-first and designed for live agent connection. There is no bundled demo data in the dashboard.
-
-Implemented:
-
-- Clean live-data dashboard
-- Type-safe JEV model
-- JSON run ingestion
-- OpenTelemetry-style trace ingestion
-- Claude Code hook adapter
-- Evidence-backed deterministic evaluator
-- Human review queue
-- Regression case export: JSONL, Promptfoo, pytest
-- Harness-agnostic release results API
-- Local in-memory run store
-
-Next:
-
-- Persistent database
-- Real Langfuse/Phoenix/Opik connectors
-- LLM judge plugins
-- GitHub Action release gate
-- Dataset versioning UI
-
-## Quick Start
+## 60-second demo
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open:
+Open the URL Next prints (often `http://localhost:3000`).
+
+1. **Dashboard → Connect Cursor** (this workspace)  
+   and/or **Connect Claude Code** (optional second source)
+2. Click **Load demo** — a real tool-error finding with evidence
+3. **Inspect → Confirm** — durable draft regression case
+4. **Datasets** — export JSONL / Promptfoo / pytest
+
+Data lives in `.evalos/evalos.db` and survives restarts.
+
+---
+
+## Product loop
 
 ```text
-http://localhost:3001
+Cursor or Claude Code session
+            │
+            ▼
+     Capture + normalize
+            │
+            ▼
+   JEV  Judge · Evidence · Verdict
+            │
+            ▼
+     Human confirms / rejects
+            │
+            ▼
+   Draft case → export / harness
+            │
+            ▼
+   POST /api/results → pass|fail|incomplete
 ```
 
-If Next chooses another port, use the URL printed by `npm run dev`.
+---
 
-## Star-worthy Demo Flow
+## Connectors
 
-```text
-Claude Code session
-        |
-        v
-EvalOS hook captures transcript
-        |
-        v
-JEV record: judge + evidence + verdict
-        |
-        v
-Human confirms failure
-        |
-        v
-Regression case exported for future runs
-```
+### Cursor (this repo)
 
-## Claude Code Integration
+Dashboard **Connect Cursor**, or commit-ready hooks:
 
-EvalOS can use Claude Code as the live agent source.
+- `.cursor/hooks.json`
+- `.cursor/hooks/evalos-capture.mjs`
 
-1. Start EvalOS:
+Posts on `stop`, `sessionEnd`, and `postToolUseFailure` while EvalOS is running.
 
-```bash
-npm run dev
-```
+### Claude Code
 
-2. Review the hook template:
+Dashboard **Connect Claude Code**, or:
 
-```bash
-Get-Content .claude\evalos.settings.example.json
-```
-
-3. Enable it for this repo:
-
-```bash
+```powershell
 Copy-Item .claude\evalos.settings.example.json .claude\settings.json
 ```
 
-4. Run Claude Code normally in the repo.
+When a Claude Code task stops, the hook posts to `POST /api/runs`.
 
-When a Claude Code task stops, the hook posts a normalized run to:
+### Import / OTLP
 
-```http
-POST http://localhost:3001/api/runs
-```
-
-The dashboard polls `/api/runs`, so new sessions appear automatically.
-
-Claude Code hooks run local commands with your user permissions. Review `.claude/settings.json` before enabling it and avoid sending secrets in transcripts.
-
-## Ingest Traces
-
-Post a neutral run:
+Paste JSON in **Settings**, or:
 
 ```bash
-curl -X POST http://localhost:3001/api/runs ^
-  -H "content-type: application/json" ^
-  -d @trace.json
+npx evalos ingest trace.json http://localhost:3000
 ```
 
-Or use the CLI adapter:
+Accepts neutral JSON runs or OTLP `resourceSpans`.
 
-```bash
-npx evalos ingest trace.json http://localhost:3001
-```
+---
 
-EvalOS accepts plain JSON runs or OTLP-style JSON with `resourceSpans`. OpenTelemetry spans are grouped by `traceId`; each span becomes traceable evidence with `traceId`, `spanId`, `parentSpanId`, attributes, status, timing, and cost where present.
+## What ships today
 
-## Harness Results API
+- Dark / light product UI with **JEV** as the core model
+- Zod-validated ingestion and stable API errors
+- SQLite persistence for runs, evaluations, evidence, reviews, draft cases
+- Deterministic evidence-backed evaluator
+- Review queue with confirm / reject
+- Exports: JSONL, Promptfoo, pytest
+- Harness results API with `incomplete` for missing data (never a fake pass)
+- CI: typecheck, lint, tests, build
 
-EvalOS does not need to run your agent. Your harness runs cases against agent versions, then posts results:
+---
+
+## Release gate API
+
+Your harness executes cases. EvalOS decides:
 
 ```http
 POST /api/results
@@ -181,74 +155,43 @@ POST /api/results
 }
 ```
 
-Response:
+Returns `ciStatus`: `pass` | `fail` | `incomplete`.
 
-```json
-{
-  "ciStatus": "pass"
-}
-```
-
-## Architecture
-
-```text
-Claude Code / agents / observability traces
-                  |
-          JSON or OpenTelemetry
-                  |
-          Canonical run schema
-                  |
-              JEV model
-      Judge -> Evidence -> Verdict
-                  |
-       Review queue + analytics
-                  |
-       Regression case exports
-                  |
- External harness -> results API -> CI status
-```
-
-## JSON Run Shape
-
-```json
-{
-  "id": "run_100",
-  "source": "json",
-  "agentName": "claude-code",
-  "framework": "claude-code",
-  "environment": "development",
-  "startedAt": "2026-09-22T05:00:00.000Z",
-  "input": [{ "role": "user", "content": "Fix the failing test" }],
-  "steps": [
-    {
-      "id": "step_1",
-      "type": "tool_call",
-      "name": "edit_file",
-      "durationMs": 300
-    }
-  ],
-  "finalOutput": "Updated the test and implementation."
-}
-```
+---
 
 ## Local APIs
 
 ```http
-GET /api/runs
-POST /api/runs
+GET    /api/runs
+POST   /api/runs
 DELETE /api/runs
-POST /api/results
+POST   /api/reviews
+POST   /api/demo
+POST   /api/setup/cursor
+POST   /api/setup/claude-code
+POST   /api/results
 ```
 
-`DELETE /api/runs` clears the local in-memory run store.
+Set `EVALOS_DB_PATH` to override `.evalos/evalos.db`.
+
+---
 
 ## Development
 
 ```bash
 npm run typecheck
 npm run lint
+npm test
 npm run build
 ```
+
+---
+
+## Star if this is useful
+
+If EvalOS saves you from re-learning the same agent failure twice, **star the repo** and open an issue with the connector you want next.
+
+Built for engineers who refuse to treat agent regressions as vibes.
 
 ## License
 
