@@ -14,7 +14,7 @@ export function parseOpenTelemetryRuns(payload: unknown): AgentRun[] {
   const spansByTrace = groupByTrace(spans);
 
   return Array.from(spansByTrace.entries()).map(([traceId, traceSpans], index) => {
-    const sorted = traceSpans.sort((a, b) => getTime(a, "startTimeUnixNano") - getTime(b, "startTimeUnixNano"));
+    const sorted = traceSpans.sort((a, b) => getSortTime(a, "startTimeUnixNano") - getSortTime(b, "startTimeUnixNano"));
     const root = sorted.find((span) => !readString(span.parentSpanId)) ?? sorted[0];
     const attributes = readAttributes(root);
     const steps = sorted.map(spanToStep);
@@ -149,6 +149,11 @@ function getTime(span: OTelSpan, key: string): number {
   if (typeof value === "string" && /^\d+$/.test(value)) return Number(value) / 1_000_000;
   const parsed = Date.parse(String(value ?? ""));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getSortTime(span: OTelSpan, key: string): number {
+  const time = getTime(span, key);
+  return time > 0 ? time : Number.MAX_SAFE_INTEGER;
 }
 
 function toIso(value: unknown): string | undefined {

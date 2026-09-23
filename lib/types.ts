@@ -185,7 +185,7 @@ export type ReleaseComparison = {
   qualityDelta: number;
   costDeltaPct: number;
   latencyDeltaPct: number;
-  ciStatus: "pass" | "fail";
+  ciStatus: "pass" | "fail" | "incomplete";
   thresholds: {
     minQualityDelta: number;
     maxCostIncreasePct: number;

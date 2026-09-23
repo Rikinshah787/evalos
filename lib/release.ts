@@ -12,17 +12,21 @@ export function compareReleaseResults(
   candidateVersion: string,
   thresholds = defaultThresholds
 ): ReleaseComparison {
-  const baseline = summarize(results.filter((result) => result.agentVersion === baselineVersion));
-  const candidate = summarize(results.filter((result) => result.agentVersion === candidateVersion));
+  const baselineResults = results.filter((result) => result.agentVersion === baselineVersion);
+  const candidateResults = results.filter((result) => result.agentVersion === candidateVersion);
+  const baseline = summarize(baselineResults);
+  const candidate = summarize(candidateResults);
   const qualityDelta = Math.round(candidate.qualityScore - baseline.qualityScore);
   const costDeltaPct = percentDelta(candidate.costUsd, baseline.costUsd);
   const latencyDeltaPct = percentDelta(candidate.latencyMs, baseline.latencyMs);
   const ciStatus =
-    qualityDelta >= thresholds.minQualityDelta &&
-    costDeltaPct <= thresholds.maxCostIncreasePct &&
-    latencyDeltaPct <= thresholds.maxLatencyIncreasePct
-      ? "pass"
-      : "fail";
+    baselineResults.length === 0 || candidateResults.length === 0
+      ? "incomplete"
+      : qualityDelta >= thresholds.minQualityDelta &&
+          costDeltaPct <= thresholds.maxCostIncreasePct &&
+          latencyDeltaPct <= thresholds.maxLatencyIncreasePct
+        ? "pass"
+        : "fail";
 
   return {
     baselineVersion,
