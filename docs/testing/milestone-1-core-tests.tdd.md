@@ -21,6 +21,9 @@ Derived from the EvalOS Product Architecture brief supplied on 2026-09-23.
 | Repeated identical tool calls are detected as loops with all repeated steps cited | `tests/unit/evaluator.test.ts` | PASS | `npm test` |
 | Reviewed findings produce regression cases and JSONL/Promptfoo/pytest exports | `tests/unit/exporters.test.ts` | PASS | `npm test` |
 | Release comparison passes, fails, and reports incomplete missing-data states | `tests/unit/release.test.ts` | PASS | `npm test` |
+| SQLite run store survives reopen and deduplicates by run id | `tests/unit/run-store.test.ts` | PASS | `npm test` |
+| Confirmed reviews and evidence persist; confirmation requires evidence | `tests/unit/review-store.test.ts` | PASS | `npm test` |
+| Ingestion, review, and release payloads validate with Zod | `tests/unit/validation.test.ts` | PASS | `npm test` |
 
 ## RED/GREEN Summary
 

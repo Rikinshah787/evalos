@@ -1,35 +1,34 @@
 import { NextResponse } from "next/server";
 import { compareReleaseResults, defaultThresholds } from "@/lib/release";
-import type { ReleaseResult } from "@/lib/types";
-
-type ResultsRequest = {
-  baselineVersion: string;
-  candidateVersion: string;
-  thresholds?: typeof defaultThresholds;
-  results: ReleaseResult[];
-};
+import { fromUnknownError, apiError } from "@/lib/validation/errors";
+import { releaseResultsRequestSchema } from "@/lib/validation/schemas";
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as ResultsRequest;
+  try {
+    const body = await request.json();
+    const parsed = releaseResultsRequestSchema.safeParse(body);
 
-  if (!body.baselineVersion || !body.candidateVersion || !Array.isArray(body.results)) {
-    return NextResponse.json(
-      {
-        error: "Expected { baselineVersion, candidateVersion, results[] }."
-      },
-      { status: 400 }
+    if (!parsed.success) {
+      return apiError(
+        400,
+        "validation_error",
+        "Expected { baselineVersion, candidateVersion, results[] }.",
+        parsed.error.flatten()
+      );
+    }
+
+    const comparison = compareReleaseResults(
+      parsed.data.results,
+      parsed.data.baselineVersion,
+      parsed.data.candidateVersion,
+      parsed.data.thresholds ?? defaultThresholds
     );
+
+    return NextResponse.json({
+      comparison,
+      ciStatus: comparison.ciStatus
+    });
+  } catch (error) {
+    return fromUnknownError(error);
   }
-
-  const comparison = compareReleaseResults(
-    body.results,
-    body.baselineVersion,
-    body.candidateVersion,
-    body.thresholds ?? defaultThresholds
-  );
-
-  return NextResponse.json({
-    comparison,
-    ciStatus: comparison.ciStatus
-  });
 }

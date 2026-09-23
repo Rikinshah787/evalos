@@ -3,6 +3,8 @@ node_modules/
 out/
 dist/
 coverage/
+.evalos/
+.claude/settings.json
 .env
 .env.local
 npm-debug.log*

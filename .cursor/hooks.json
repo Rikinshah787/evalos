@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "stop": [
+      {
+        "command": "node .cursor/hooks/evalos-capture.mjs"
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "command": "node .cursor/hooks/evalos-capture.mjs"
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "node .cursor/hooks/evalos-capture.mjs"
+      }
+    ]
+  }
+}

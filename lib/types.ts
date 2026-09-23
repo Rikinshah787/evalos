@@ -107,6 +107,7 @@ export type JevEvaluation = {
 };
 
 export type EvaluationResult = {
+  id?: string;
   runId: string;
   evaluatorId: string;
   evaluatorVersion: string;
@@ -159,13 +160,16 @@ export type EvalCase = {
   };
 };
 
-export type ReviewStatus = "pending" | "confirmed" | "rejected";
+export type ReviewStatus = "pending" | "confirmed" | "rejected" | "needs_changes";
 
 export type ReviewRecord = {
+  id?: string;
+  evaluationId?: string;
   runId: string;
   status: ReviewStatus;
   category: FailureType;
   expectedBehavior: string;
+  notes?: string;
   reviewer: string;
   updatedAt: string;
 };
