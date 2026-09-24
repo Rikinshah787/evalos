@@ -33,7 +33,7 @@ import { groupIssues } from "@/lib/issues";
 import type { AgentRun, EvaluatedRun, ReviewRecord } from "@/lib/types";
 import { TraceWaterfall } from "@/components/traces/TraceWaterfall";
 
-type View = "dashboard" | "inspect" | "runs" | "results" | "datasets" | "releases" | "settings";
+type View = "dashboard" | "inspect" | "runs" | "results" | "datasets" | "releases" | "data" | "settings";
 type ExportFormat = "jsonl" | "promptfoo" | "pytest";
 type Theme = "light" | "dark";
 
@@ -359,6 +359,7 @@ export default function Home() {
     results: "Results",
     datasets: "Datasets",
     releases: "Releases",
+    data: "Data",
     settings: "Settings"
   };
 
@@ -377,6 +378,7 @@ export default function Home() {
           <NavButton active={view === "runs"} onClick={() => setView("runs")} icon={<ClipboardList size={18} />} label="Runs" />
           <NavButton active={view === "datasets"} onClick={() => setView("datasets")} icon={<FileJson size={18} />} label="Datasets" />
           <NavButton active={view === "releases"} onClick={() => setView("releases")} icon={<Database size={18} />} label="Releases" />
+          <NavButton active={view === "data"} onClick={() => setView("data")} icon={<Monitor size={18} />} label="Data" />
           <NavButton active={view === "settings"} onClick={() => setView("settings")} icon={<Settings size={18} />} label="Settings" />
         </nav>
 
@@ -524,6 +526,8 @@ export default function Home() {
             <ReleasesView confirmedCount={confirmedRuns.length} runs={evaluatedRuns} reviews={reviews} />
           ) : null}
 
+          {view === "data" ? <DataView selectedRunId={selectedRun?.id} onSelectRun={setSelectedRunId} /> : null}
+
           {view === "settings" ? (
             <SettingsView
               cursorConnected={cursorConnected}
@@ -608,8 +612,8 @@ function DashboardView({
         </span>
       </h2>
       <p>
-        Keep EvalOS running. Connect Cursor once. Agent stops auto-ingest the full transcript. Confirm writes a real
-        case into <code>evals/cases/</code>. Ask Cursor via MCP: “list EvalOS issues.”
+        Keep EvalOS running. Hooks + MCP auto-setup on boot — any agent that POSTs JSON/OTLP works, Cursor captures on stop.
+        Confirm writes real cases into <code>evals/cases/</code>. No demo rows in the database.
       </p>
 
       <div className="jev-keys" aria-label="JEV model">
@@ -642,7 +646,7 @@ function DashboardView({
         </button>
         <button className="prompt-card" type="button" disabled={busy || cursorConnected} onClick={onConnectCursor}>
           <span><CheckCircle2 size={16} /></span>
-          Connect Cursor (hooks + MCP auto-capture)
+          {cursorConnected ? "Cursor auto-capture on" : "Repair Cursor auto-setup"}
         </button>
         <button className="prompt-card" type="button" disabled={busy || claudeConnected} onClick={onConnectClaude}>
           <span><CheckCircle2 size={16} /></span>
@@ -965,6 +969,203 @@ function DatasetsView({
         <textarea className="export-box" readOnly value={exportText} />
       </section>
     </div>
+  );
+}
+
+function DataView({
+  selectedRunId,
+  onSelectRun
+}: {
+  selectedRunId?: string;
+  onSelectRun: (id: string) => void;
+}) {
+  const [db, setDb] = useState<{
+    path: string;
+    engine: string;
+    tables: Array<{ name: string; count: number }>;
+    recentRuns: Array<{
+      id: string;
+      agentName: string;
+      framework: string;
+      source: string;
+      startedAt: string;
+      model: string | null;
+    }>;
+    note: string;
+  } | null>(null);
+  const [graph, setGraph] = useState<{
+    runId: string;
+    nodes: Array<{ id: string; label: string; kind: string; detail?: string }>;
+    edges: Array<{ id: string; from: string; to: string; label: string }>;
+    exportHint: string;
+  } | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/db", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not read database.");
+        return response.json();
+      })
+      .then((payload) => {
+        if (!cancelled) setDb(payload);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "DB browse failed");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const query = selectedRunId ? `?runId=${encodeURIComponent(selectedRunId)}` : "";
+    fetch(`/api/graph${query}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return response.json();
+      })
+      .then((payload) => {
+        if (!cancelled && payload?.graph) setGraph(payload.graph);
+      })
+      .catch(() => {
+        // empty ok
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRunId]);
+
+  return (
+    <div className="grid two-col">
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>SQLite (source of truth)</h2>
+            <p className="subtle">Only real ingested rows. No demo seed.</p>
+          </div>
+        </div>
+        {error ? <p className="subtle">{error}</p> : null}
+        {db ? (
+          <>
+            <p className="subtle">
+              Engine <code>{db.engine}</code> · path <code>{db.path}</code>
+            </p>
+            <div className="metrics" style={{ marginTop: 12 }}>
+              {db.tables.map((table) => (
+                <Metric key={table.name} label={table.name} value={String(table.count)} />
+              ))}
+            </div>
+            <p className="subtle" style={{ marginTop: 12 }}>
+              {db.note}
+            </p>
+            <div className="run-list" style={{ marginTop: 16 }}>
+              {db.recentRuns.map((run) => (
+                <button key={run.id} className="run-card" type="button" onClick={() => onSelectRun(run.id)}>
+                  <div className="run-title">
+                    <h3>{run.agentName}</h3>
+                    <span className="tag">{run.framework}</span>
+                  </div>
+                  <p className="subtle">
+                    {run.id} · {run.model || "no-model"} · {run.startedAt}
+                  </p>
+                </button>
+              ))}
+              {db.recentRuns.length === 0 ? (
+                <div className="empty-state">
+                  <strong>Database empty</strong>
+                  <span className="subtle">Import a session or POST any agent JSON/OTLP to /api/runs.</span>
+                </div>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          <p className="subtle">Loading database…</p>
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Run graph</h2>
+            <p className="subtle">Property-graph projection from SQLite. Neo4j optional later.</p>
+          </div>
+        </div>
+        {graph ? (
+          <>
+            <p className="subtle">
+              Run <code>{graph.runId}</code> · {graph.nodes.length} nodes · {graph.edges.length} edges
+            </p>
+            <RunGraphSvg nodes={graph.nodes} edges={graph.edges} />
+            <p className="subtle detail-line" style={{ marginTop: 12 }}>
+              {graph.exportHint}
+            </p>
+            <textarea className="export-box" readOnly value={JSON.stringify(graph, null, 2)} />
+          </>
+        ) : (
+          <div className="empty-state">
+            <strong>No graph yet</strong>
+            <span className="subtle">Select a real run on the left.</span>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function RunGraphSvg({
+  nodes,
+  edges
+}: {
+  nodes: Array<{ id: string; label: string; kind: string; detail?: string }>;
+  edges: Array<{ id: string; from: string; to: string; label: string }>;
+}) {
+  const width = 640;
+  const height = Math.max(280, nodes.length * 28);
+  const positions = new Map<string, { x: number; y: number }>();
+  nodes.forEach((node, index) => {
+    const col = index % 2;
+    const row = Math.floor(index / 2);
+    positions.set(node.id, {
+      x: col === 0 ? 140 : 420,
+      y: 36 + row * 52
+    });
+  });
+
+  return (
+    <svg className="run-graph" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Run property graph">
+      {edges.map((edge) => {
+        const from = positions.get(edge.from);
+        const to = positions.get(edge.to);
+        if (!from || !to) return null;
+        return (
+          <g key={edge.id}>
+            <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="currentColor" opacity="0.35" />
+          </g>
+        );
+      })}
+      {nodes.map((node) => {
+        const pos = positions.get(node.id);
+        if (!pos) return null;
+        return (
+          <g key={node.id}>
+            <rect
+              x={pos.x - 70}
+              y={pos.y - 16}
+              width="140"
+              height="32"
+              rx="8"
+              className={`graph-node kind-${node.kind}`}
+            />
+            <text x={pos.x} y={pos.y + 4} textAnchor="middle" fontSize="11" fill="currentColor">
+              {node.label.slice(0, 18)}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 

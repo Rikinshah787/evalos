@@ -34,6 +34,8 @@ export function evaluateRun(run: AgentRun): EvaluationResult {
   const weakFinalAnswer = lowValueResponses.some((signal) => run.finalOutput.toLowerCase().includes(signal));
   const riskyCompliance = combined.includes("hipaa certified");
   const missingTool = needsTool(run) && !run.steps.some((step) => step.type === "tool_call");
+  const abandoned = run.metadata?.likelyAbandoned === true || run.metadata?.conversationShape === "abandoned";
+  const correctionHeavy = Number(run.metadata?.correctionTurns ?? 0) >= 2;
 
   let failureType: FailureType = "none";
   let reason = "Run appears complete and usable.";
@@ -56,10 +58,19 @@ export function evaluateRun(run: AgentRun): EvaluationResult {
     failureType = "hallucination";
     reason = "The run makes a high-risk compliance claim that should be verified.";
     score = 38;
+  } else if (abandoned) {
+    failureType = "user_abandoned";
+    reason =
+      "Conversation signals suggest the user gave up, left an unanswered ask, or hit a nudge streak without resolution.";
+    score = 40;
   } else if (missingTool) {
     failureType = "missing_tool_call";
     reason = "The request likely required a tool, but the agent answered without one.";
     score = 48;
+  } else if (correctionHeavy && hasNegativeSignal) {
+    failureType = "incomplete_answer";
+    reason = "The user had to correct the agent multiple times and still showed frustration.";
+    score = 44;
   } else if (hasNegativeSignal && weakFinalAnswer) {
     failureType = "incomplete_answer";
     reason = "The user showed frustration and the final response asked for clarification instead of resolving the issue.";

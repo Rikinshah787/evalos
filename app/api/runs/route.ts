@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ensureCursorAutoSetup } from "@/lib/auto-setup";
 import { evaluateRuns } from "@/lib/evaluator";
 import { saveEvaluations } from "@/lib/evaluation-store";
 import { parseRunsFromJson } from "@/lib/importer";
@@ -10,11 +11,18 @@ import { fromUnknownError, apiError } from "@/lib/validation/errors";
 import { ingestPayloadSchema } from "@/lib/validation/schemas";
 
 export async function GET() {
+  const setup = ensureCursorAutoSetup();
   const runs = listRuns();
   return NextResponse.json({
     count: runs.length,
     runs,
-    reviews: getReviewMap()
+    reviews: getReviewMap(),
+    autoSetup: {
+      connected: setup.connected,
+      mcpConnected: setup.mcpConnected,
+      changed: setup.changed,
+      message: setup.message
+    }
   });
 }
 

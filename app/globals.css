@@ -1252,8 +1252,37 @@ p {
   font-family: var(--font-mono), monospace;
 }
 
-@media (max-width: 1100px) {
-  .compare-charts {
-    grid-template-columns: 1fr;
-  }
+.run-graph {
+  width: 100%;
+  min-height: 280px;
+  color: var(--muted);
+  background: var(--panel-soft);
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+}
+
+.graph-node {
+  fill: var(--panel);
+  stroke: var(--line);
+}
+
+.graph-node.kind-user {
+  stroke: var(--blue);
+}
+
+.graph-node.kind-tool {
+  stroke: #ea580c;
+}
+
+.graph-node.kind-error {
+  stroke: var(--danger);
+}
+
+.graph-node.kind-verdict,
+.graph-node.kind-evidence {
+  stroke: var(--accent);
+}
+
+.graph-node.kind-run {
+  stroke: var(--ok);
 }

@@ -33,10 +33,17 @@ npm run dev
 
 Open http://localhost:3000
 
-1. **Results** — pass ratios, histograms, case × version matrix (sample loads instantly)  
-2. **Connect Cursor** — hooks + MCP auto-capture on agent stop  
-3. **Inspect** → **Confirm** → writes `evals/cases/case_*.json`  
-4. Or: `npx evalos init` then `npx evalos dev`
+1. **Results** — real live runs / harness results (sample is opt-in only)  
+2. **Data** — browse SQLite tables + run property graph (Neo4j optional later)  
+3. Auto Cursor hooks on `npm run dev` — agent stop captures  
+4. Or POST any agent JSON/OTLP to `/api/runs`  
+5. **Inspect** → **Confirm** → `evals/cases/case_*.json`  
+
+```bash
+npx evalos init && npx evalos dev
+```
+
+Keep EvalOS on `:3000`. Data lives in `.evalos/evalos.db`. No cloud. No signup. No seeded demo rows.
 
 ---
 
