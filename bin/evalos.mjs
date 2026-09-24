@@ -119,6 +119,16 @@ if (command === "demo") {
   process.exit(result.status ?? 1);
 }
 
+if (command === "proxy") {
+  const script = join(repoRoot, "scripts", "evalos-proxy.mjs");
+  const result = spawnSync(process.execPath, [script, ...process.argv.slice(3)], {
+    cwd: repoRoot,
+    stdio: "inherit",
+    env: process.env
+  });
+  process.exit(result.status ?? 1);
+}
+
 printHelp();
 
 function readConfigServerUrl() {
@@ -138,6 +148,7 @@ function printHelp() {
 
 Commands:
   npx evalos demo                  15s: fail → Confirm → case → CI red
+  npx evalos proxy                 Magic: capture OpenAI/Anthropic traffic
   npx evalos init                  Create config + evals/cases scaffold
   npx evalos dev                   Start local UI on :3000
   npx evalos ingest <trace.json>   POST JSON / OTLP traces

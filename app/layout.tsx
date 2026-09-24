@@ -15,9 +15,9 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EvalOS — Judge · Evidence · Verdict",
+  title: "EvalOS — Sentry for AI agents",
   description:
-    "Local-first eval infrastructure that turns agent failures into typed JEV regression tests for Cursor and Claude Code."
+    "Capture agent failures, Confirm the real ones, block them in CI. Judge · Evidence · Verdict."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

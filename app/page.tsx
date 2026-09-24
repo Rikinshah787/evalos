@@ -33,7 +33,7 @@ import { groupIssues } from "@/lib/issues";
 import type { AgentRun, EvaluatedRun, ReviewRecord } from "@/lib/types";
 import { TraceWaterfall } from "@/components/traces/TraceWaterfall";
 
-type View = "dashboard" | "inspect" | "runs" | "results" | "datasets" | "releases" | "data" | "settings";
+type View = "dashboard" | "inspect" | "issues" | "runs" | "results" | "datasets" | "releases" | "data" | "settings";
 type ExportFormat = "jsonl" | "promptfoo" | "pytest";
 type Theme = "light" | "dark";
 
@@ -355,10 +355,11 @@ export default function Home() {
   const titles: Record<View, string> = {
     dashboard: "Dashboard",
     inspect: "Inspect",
+    issues: "Issues",
     runs: "Runs",
     results: "Results",
     datasets: "Datasets",
-    releases: "Releases",
+    releases: "Gate",
     data: "Data",
     settings: "Settings"
   };
@@ -373,11 +374,12 @@ export default function Home() {
 
         <nav className="nav" aria-label="Primary">
           <NavButton active={view === "dashboard"} onClick={() => setView("dashboard")} icon={<LayoutDashboard size={18} />} label="Dashboard" />
+          <NavButton active={view === "issues"} onClick={() => setView("issues")} icon={<TriangleAlert size={18} />} label="Issues" />
           <NavButton active={view === "inspect"} onClick={() => setView("inspect")} icon={<Eye size={18} />} label="Inspect" />
+          <NavButton active={view === "releases"} onClick={() => setView("releases")} icon={<Database size={18} />} label="Gate" />
           <NavButton active={view === "results"} onClick={() => setView("results")} icon={<GitCompareArrows size={18} />} label="Results" />
           <NavButton active={view === "runs"} onClick={() => setView("runs")} icon={<ClipboardList size={18} />} label="Runs" />
           <NavButton active={view === "datasets"} onClick={() => setView("datasets")} icon={<FileJson size={18} />} label="Datasets" />
-          <NavButton active={view === "releases"} onClick={() => setView("releases")} icon={<Database size={18} />} label="Releases" />
           <NavButton active={view === "data"} onClick={() => setView("data")} icon={<Monitor size={18} />} label="Data" />
           <NavButton active={view === "settings"} onClick={() => setView("settings")} icon={<Settings size={18} />} label="Settings" />
         </nav>
@@ -471,6 +473,18 @@ export default function Home() {
               onInspect={() => setView("inspect")}
               onImport={() => setView("settings")}
               onResults={() => setView("results")}
+              onIssues={() => setView("issues")}
+              onGate={() => setView("releases")}
+            />
+          ) : null}
+
+          {view === "issues" ? (
+            <IssuesView
+              issueGroups={issueGroups}
+              onOpen={(runId) => {
+                setSelectedRunId(runId);
+                setView("inspect");
+              }}
             />
           ) : null}
 
@@ -584,7 +598,9 @@ function DashboardView({
   onImportSession,
   onInspect,
   onImport,
-  onResults
+  onResults,
+  onIssues,
+  onGate
 }: {
   cursorConnected: boolean;
   claudeConnected: boolean;
@@ -602,32 +618,34 @@ function DashboardView({
   onInspect: () => void;
   onImport: () => void;
   onResults: () => void;
+  onIssues: () => void;
+  onGate: () => void;
 }) {
   return (
     <div className="hero-center">
       <h2>
-        Fail once. Never fail the same way twice.{" "}
+        Sentry for AI agents{" "}
         <span className="inspect-pill">
           <Eye size={14} /> JEV
         </span>
       </h2>
       <p>
-        Keep EvalOS running. Hooks + MCP auto-setup on boot — any agent that POSTs JSON/OTLP works, Cursor captures on stop.
-        Confirm writes real cases into <code>evals/cases/</code>. No demo rows in the database.
+        Capture failures from any agent. Confirm the real ones. Block them in CI.
+        Scores are triage — <strong>confirmed cases</strong> are the product.
       </p>
 
-      <div className="jev-keys" aria-label="JEV model">
+      <div className="jev-keys" aria-label="Product spine">
         <div className="jev-key">
-          <strong>Judge</strong>
-          <span>Which evaluator ran, and why it flagged the run.</span>
+          <strong>1. Capture</strong>
+          <span>Hooks, proxy, or one-line SDK — no per-vendor scrapers.</span>
         </div>
         <div className="jev-key">
-          <strong>Evidence</strong>
-          <span>Exact tool steps, spans, and excerpts that support the finding.</span>
+          <strong>2. Issues</strong>
+          <span>Grouped failures with exact tool evidence.</span>
         </div>
         <div className="jev-key">
-          <strong>Verdict</strong>
-          <span>Pass, fail, or review — with an editable expected behavior.</span>
+          <strong>3. Gate</strong>
+          <span>Confirmed cases fail the PR if the bug returns.</span>
         </div>
       </div>
 
@@ -644,25 +662,29 @@ function DashboardView({
           <span><Eye size={16} /></span>
           Import this Cursor chat as a real traced run
         </button>
+        <button className="prompt-card" type="button" onClick={onIssues}>
+          <span><TriangleAlert size={16} /></span>
+          Open Issues — grouped recurring failures
+        </button>
+        <button className="prompt-card" type="button" onClick={onGate}>
+          <span><Database size={16} /></span>
+          Open Gate — CI pass / fail / incomplete
+        </button>
         <button className="prompt-card" type="button" disabled={busy || cursorConnected} onClick={onConnectCursor}>
           <span><CheckCircle2 size={16} /></span>
           {cursorConnected ? "Cursor auto-capture on" : "Repair Cursor auto-setup"}
         </button>
-        <button className="prompt-card" type="button" disabled={busy || claudeConnected} onClick={onConnectClaude}>
-          <span><CheckCircle2 size={16} /></span>
-          Connect Claude Code (optional second source)
+        <button className="prompt-card" type="button" onClick={onInspect}>
+          <span><TriangleAlert size={16} /></span>
+          Open Inspect to Confirm / Reject evidence
         </button>
         <button className="prompt-card" type="button" onClick={onResults}>
           <span><GitCompareArrows size={16} /></span>
-          Open Results — model/version compare grid
-        </button>
-        <button className="prompt-card" type="button" onClick={onInspect}>
-          <span><TriangleAlert size={16} /></span>
-          Open Inspect to review evidence
+          Open Results — version compare
         </button>
         <button className="prompt-card" type="button" onClick={onImport}>
           <span><Upload size={16} /></span>
-          Import a JSON or OpenTelemetry trace
+          Import JSON / OTLP · or use npx evalos proxy
         </button>
       </div>
 
@@ -674,7 +696,7 @@ function DashboardView({
           onKeyDown={(event) => {
             if (event.key === "Enter") onComposerSubmit();
           }}
-          placeholder="Import this session, connect Cursor, connect Claude Code..."
+          placeholder="Import this session, connect Cursor, open issues..."
           aria-label="Quick action"
         />
         <button className="composer-send" type="button" onClick={onComposerSubmit} aria-label="Run action">
@@ -687,7 +709,7 @@ function DashboardView({
       <div className="setup-grid">
         <article className="setup-card">
           <h3>1. Capture</h3>
-          <p>Import this live Cursor transcript, or enable hooks for the next agent stop.</p>
+          <p>Cursor hooks on boot, or <code>npx evalos proxy</code> for OpenAI/Anthropic.</p>
           <div className="actions left-actions">
             <button className="button primary" type="button" disabled={busy} onClick={onImportSession}>
               Import this session
@@ -698,19 +720,66 @@ function DashboardView({
           </div>
         </article>
         <article className="setup-card">
-          <h3>2. Review</h3>
-          <p>Every finding links to exact tool steps. Confirm only when evidence is solid.</p>
-          <button className="button" type="button" onClick={onInspect}>
-            Open Inspect
+          <h3>2. Confirm</h3>
+          <p>Issues group repeats. Confirm only with solid evidence.</p>
+          <button className="button" type="button" onClick={onIssues}>
+            Open Issues
           </button>
         </article>
         <article className="setup-card">
-          <h3>3. Protect</h3>
-          <p>Confirmed findings become draft cases you can export to JSONL, Promptfoo, or pytest.</p>
-          <button className="button" type="button" disabled={busy || claudeConnected} onClick={onConnectClaude}>
-            {claudeConnected ? "Claude on" : "Connect Claude Code"}
+          <h3>3. Gate</h3>
+          <p>Confirmed cases become CI: pass, fail, or incomplete.</p>
+          <button className="button" type="button" onClick={onGate}>
+            Open Gate
           </button>
         </article>
+      </div>
+    </div>
+  );
+}
+
+function IssuesView({
+  issueGroups,
+  onOpen
+}: {
+  issueGroups: ReturnType<typeof groupIssues>;
+  onOpen: (runId: string) => void;
+}) {
+  if (issueGroups.length === 0) {
+    return (
+      <div className="hero-center">
+        <h2>No open issues</h2>
+        <p>Capture an agent run. Failures will group here by fingerprint — like Sentry issues.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="panel">
+      <div className="panel-header">
+        <div>
+          <h2>Issues</h2>
+          <p className="subtle">Recurring agent failures, stacked by fingerprint. Open one to Confirm or Reject.</p>
+        </div>
+      </div>
+      <div className="run-list">
+        {issueGroups.map((group) => (
+          <button key={group.fingerprint} className="run-card" type="button" onClick={() => onOpen(group.latestRunId)}>
+            <div className="run-title">
+              <h3>{group.title}</h3>
+              <span className={`tag ${group.risk === "high" ? "danger" : group.risk === "medium" ? "warn" : "ok"}`}>
+                ×{group.count} · {group.risk}
+              </span>
+            </div>
+            <p className="subtle">{group.reason}</p>
+            <div className="tags">
+              <span className="tag">{group.failureType.replaceAll("_", " ")}</span>
+              <span className={`tag ${group.reviewStatus === "confirmed" ? "ok" : group.reviewStatus === "rejected" ? "danger" : "warn"}`}>
+                {group.reviewStatus}
+              </span>
+            </div>
+          </button>
+        ))}
       </div>
     </div>
   );

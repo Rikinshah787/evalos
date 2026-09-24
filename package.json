@@ -51,6 +51,7 @@
     "lib",
     "LICENSE",
     "scripts",
+    "sdk",
     "README.md",
     "drizzle.config.ts",
     "next.config.ts",
@@ -67,7 +68,8 @@
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "gate": "node scripts/ci-gate.mjs",
-    "demo": "node scripts/demo.mjs"
+    "demo": "node scripts/demo.mjs",
+    "proxy": "node scripts/evalos-proxy.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

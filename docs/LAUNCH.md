@@ -87,9 +87,9 @@ https://github.com/Rikinshah787/evalos
 
 ## Cadence
 
-1. Tonight: post X + Discord with `npm run demo`  
+1. Tonight: post X + Discord with `npm run demo` + mention `npx evalos proxy` for API agents  
 2. Tomorrow morning ET: Show HN  
 3. Reply to every comment in the first 2 hours  
-4. Do not spend those hours polishing UI
+4. Do not spend those hours building per-vendor log scrapers — proxy + Confirm is the story
 
 **100★ in a day** needs HN or a viral Cursor/X hit. Ship the demo, then talk to humans.

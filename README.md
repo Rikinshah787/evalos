@@ -1,10 +1,15 @@
 # EvalOS
 
-### Your agent failed once. Make sure it never fails the same way twice.
+### Sentry for AI agents — fail once, never the same way twice
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![CI](https://github.com/Rikinshah787/evalos/actions/workflows/ci.yml/badge.svg)](https://github.com/Rikinshah787/evalos/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/Rikinshah787/evalos?style=social)](https://github.com/Rikinshah787/evalos/stargazers)
+
+**Capture → Issues → Confirm → Gate.**  
+Automatic scores are triage. Confirmed cases in CI are the product.
+
+Product thesis: [`docs/PRODUCT.md`](docs/PRODUCT.md)
 
 ```bash
 npm install && npm run demo
@@ -43,6 +48,34 @@ Or:
 ```bash
 npx evalos demo
 ```
+
+## The magic (don’t build a connector per vendor)
+
+**Cursor / Claude Code:** `npm run dev` auto-wires hooks. Sessions land in EvalOS.
+
+**Any OpenAI / Anthropic agent** (Codex, custom, SDK):
+
+```bash
+# terminal 1
+npm run dev
+
+# terminal 2
+npx evalos proxy
+```
+
+Point your app at the proxy (one env var — no per-API importers):
+
+```bash
+# PowerShell
+$env:OPENAI_BASE_URL="http://127.0.0.1:8787/v1"
+
+# bash
+export OPENAI_BASE_URL=http://127.0.0.1:8787/v1
+```
+
+Traffic is forwarded upstream and copied into EvalOS. Then: **Inspect → Confirm → `evals/cases` → `npm run gate`**.
+
+That is the whole product. No scraping platform.openai.com. No “build for every log tab.”
 
 ## Open the UI (60 seconds)
 
