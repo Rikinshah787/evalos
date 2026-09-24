@@ -1,7 +1,7 @@
 import type { AgentRun, EvaluatedRun, EvaluationResult, FailureType, JevEvaluation } from "./types";
 
 export const DEFAULT_EVALUATOR_ID = "evalos.deterministic.agent_run";
-export const DEFAULT_EVALUATOR_VERSION = "0.3.0";
+export const DEFAULT_EVALUATOR_VERSION = "0.4.0";
 
 const LOOP_REPEAT_THRESHOLD = 3;
 
@@ -27,8 +27,8 @@ export function evaluateRun(run: AgentRun): EvaluationResult {
     .join(" ")
     .toLowerCase();
 
-  const hasToolError = run.steps.some((step) => step.type === "tool_call" && step.error);
-  const hasTimeout = combined.includes("timeout") || combined.includes("timed out");
+  const hasToolError = run.steps.some((step) => step.type === "tool_call" && Boolean(step.error) && !isTimeoutError(step.error));
+  const hasTimeout = runHasTimeoutFailure(run);
   const repeatedTool = detectRepeatedTool(run);
   const hasNegativeSignal = negativeSignals.some((signal) => combined.includes(signal));
   const weakFinalAnswer = lowValueResponses.some((signal) => run.finalOutput.toLowerCase().includes(signal));
@@ -122,6 +122,29 @@ function detectRepeatedTool(run: AgentRun): boolean {
   return findLoopFingerprints(run).length > 0;
 }
 
+/** Only real step/run failures — never the word "timeout" appearing in chat or code. */
+function runHasTimeoutFailure(run: AgentRun): boolean {
+  return run.steps.some((step) => isTimeoutError(step.error) || isTimeoutStepName(step.name, step.type));
+}
+
+function isTimeoutError(error: string | null | undefined): boolean {
+  if (!error) return false;
+  const text = error.toLowerCase();
+  return (
+    text.includes("timed out") ||
+    text.includes("timeout exceeded") ||
+    text.includes("deadline exceeded") ||
+    /\bETIMEDOUT\b/i.test(error) ||
+    /\bTimeoutError\b/i.test(error)
+  );
+}
+
+function isTimeoutStepName(name: string, type: AgentRun["steps"][number]["type"]): boolean {
+  if (type !== "error" && type !== "tool_call") return false;
+  const text = name.toLowerCase();
+  return text === "timeout" || text.endsWith(".timeout") || text.includes("timed_out");
+}
+
 /** Same tool name + same input, repeated enough times to look stuck. */
 function findLoopFingerprints(run: AgentRun): string[] {
   const counts = new Map<string, number>();
@@ -186,7 +209,7 @@ function buildEvidence(run: AgentRun, failureType: FailureType): EvaluationResul
 
   const preferred = run.steps.filter((step) => {
     if (failureType === "tool_error") return step.type === "tool_call" && Boolean(step.error);
-    if (failureType === "timeout") return step.error?.toLowerCase().includes("timed out") || step.name.toLowerCase().includes("timeout");
+    if (failureType === "timeout") return isTimeoutError(step.error) || isTimeoutStepName(step.name, step.type);
     if (failureType === "loop_detected" && loopFingerprints) {
       return (step.type === "tool_call" || step.type === "error") && loopFingerprints.has(toolFingerprint(step.name, step.input));
     }
