@@ -32,7 +32,7 @@ describe("buildTraceTree", () => {
   it("does not invent 220ms per tool when duration is unknown", () => {
     const run: AgentRun = {
       id: "run_nodur",
-      source: "cursor",
+      source: "json",
       agentName: "cursor",
       framework: "cursor",
       environment: "development",
