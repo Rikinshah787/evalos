@@ -5,6 +5,7 @@ dist/
 coverage/
 .evalos/
 .claude/settings.json
+.cursor/mcp.json
 .env
 .env.local
 npm-debug.log*

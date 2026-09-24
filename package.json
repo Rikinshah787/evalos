@@ -58,9 +58,9 @@
     "eslint.config.mjs"
   ],
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/ensure-cursor-setup.mjs && next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/ensure-cursor-setup.mjs && next start",
     "db:generate": "drizzle-kit generate",
     "lint": "eslint app lib scripts tests next.config.ts drizzle.config.ts eslint.config.mjs vitest.config.mts",
     "test": "vitest run",

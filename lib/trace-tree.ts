@@ -29,10 +29,13 @@ export function buildTraceTree(run: AgentRun): { roots: TraceNode[]; totalMs: nu
 
   function durationFor(step: AgentRunStep): number {
     if (typeof step.durationMs === "number" && step.durationMs > 0) return step.durationMs;
-    if (step.type === "tool_call") return 220;
-    if (step.type === "error") return 120;
-    if (step.type === "llm_call") return 400;
-    return 80;
+    if (step.startedAt && step.endedAt) {
+      const start = Date.parse(step.startedAt);
+      const end = Date.parse(step.endedAt);
+      if (Number.isFinite(start) && Number.isFinite(end) && end >= start) return end - start;
+    }
+    // Unknown duration — do not invent 220ms per step (that fake-totaled long sessions).
+    return 0;
   }
 
   function toNode(step: AgentRunStep, depth: number): TraceNode {

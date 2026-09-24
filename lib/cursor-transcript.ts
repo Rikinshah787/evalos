@@ -1,5 +1,6 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { attachConversationSignals } from "./conversation-signals";
 import type { AgentMessage, AgentRun, AgentRunStep } from "./types";
 
 type TranscriptRow = {
@@ -12,7 +13,8 @@ type TranscriptRow = {
 };
 
 const MAX_STEP_CHARS = 1200;
-const MAX_STEPS = 250;
+const MAX_STEPS = 400;
+const MAX_USER_TURNS = 40;
 
 export function resolveCursorTranscriptPath(cwd = process.cwd()): string | null {
   if (process.env.EVALOS_CURSOR_TRANSCRIPT && existsSync(process.env.EVALOS_CURSOR_TRANSCRIPT)) {
@@ -57,18 +59,22 @@ export function parseCursorTranscript(
   let stepIndex = 0;
   let lastAssistant = "";
   let parentSpan: string | undefined;
+  let startedAt: string | undefined;
 
   for (const row of rows) {
     const role = row.role || row.type;
     const content = row.message?.content ?? row.content;
+    const rowTime = extractTimestamp(row);
 
     if (role === "user") {
       const text = extractText(content);
       if (text) {
         input.push({
           role: "user",
-          content: truncate(stripTags(text), 4000)
+          content: truncate(stripTags(text), 4000),
+          timestamp: rowTime
         });
+        if (!startedAt && rowTime) startedAt = rowTime;
       }
       continue;
     }
@@ -90,7 +96,8 @@ export function parseCursorTranscript(
           parentSpanId: parentSpan,
           type: "message",
           name: "assistant.response",
-          output: truncate(item.text, MAX_STEP_CHARS)
+          output: truncate(item.text, MAX_STEP_CHARS),
+          startedAt: rowTime
         });
         parentSpan = spanId;
         continue;
@@ -110,6 +117,7 @@ export function parseCursorTranscript(
           input: sanitize(item.input ?? item.arguments),
           output: sanitize(item.output ?? item.result),
           error: isError ? truncate(String(item.error || item.message || `${toolName} failed`), 500) : null,
+          startedAt: rowTime,
           metadata: {
             toolCallId: typeof item.id === "string" ? item.id : null
           }
@@ -120,23 +128,24 @@ export function parseCursorTranscript(
   }
 
   const deduped = dedupeSteps(steps).slice(0, MAX_STEPS);
-  const uniqueInput = uniqueMessages(input).slice(-8);
+  const uniqueInput = uniqueMessages(input).slice(-MAX_USER_TURNS);
   const firstUser = uniqueInput[0]?.content || "Cursor agent session";
+  const latencyMs = estimateLatencyMs(uniqueInput, deduped, startedAt);
 
-  return {
+  const run: AgentRun = {
     id: `cursor_${conversationId}`,
     source: "json",
     agentName: "cursor",
     framework: "cursor",
     environment: "development",
-    startedAt: new Date().toISOString(),
+    startedAt: startedAt || new Date().toISOString(),
     model: "cursor-agent",
     promptVersion: "live-session",
     input: uniqueInput.length > 0 ? uniqueInput : [{ role: "user", content: firstUser }],
     steps: deduped,
     finalOutput: truncate(stripTags(lastAssistant) || "Cursor session captured.", 4000),
     sourceUrl: options?.transcriptPath ? `file://${options.transcriptPath}` : undefined,
-    latencyMs: Math.max(deduped.length * 40, 1),
+    latencyMs,
     metadata: {
       connector: "cursor",
       conversationId,
@@ -145,6 +154,8 @@ export function parseCursorTranscript(
       userTurns: uniqueInput.length
     }
   };
+
+  return attachConversationSignals(run);
 }
 
 export function loadCursorSessionRun(transcriptPath?: string): AgentRun {
@@ -176,6 +187,29 @@ function findNewestJsonl(root: string): string | null {
   }
 
   return best?.path ?? null;
+}
+
+function extractTimestamp(row: TranscriptRow): string | undefined {
+  const record = row as Record<string, unknown>;
+  for (const key of ["timestamp", "createdAt", "created_at", "time"]) {
+    const value = record[key];
+    if (typeof value === "string" && value.length > 0) return value;
+    if (typeof value === "number" && Number.isFinite(value)) return new Date(value).toISOString();
+  }
+  return undefined;
+}
+
+function estimateLatencyMs(input: AgentMessage[], steps: AgentRunStep[], startedAt?: string) {
+  const fromSteps = steps.reduce((sum, step) => sum + (step.durationMs ?? 0), 0);
+  if (fromSteps > 0) return fromSteps;
+  const times = [...input.map((item) => item.timestamp), ...steps.map((step) => step.startedAt), startedAt]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => Date.parse(value))
+    .filter((value) => Number.isFinite(value));
+  if (times.length >= 2) {
+    return Math.max(1, Math.max(...times) - Math.min(...times));
+  }
+  return Math.max(steps.length * 40, 1);
 }
 
 function extractText(content: unknown): string {

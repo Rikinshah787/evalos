@@ -28,4 +28,26 @@ describe("buildTraceTree", () => {
     expect(tree.roots[0]?.children[0]?.children[0]?.step.error).toBe("failed");
     expect(formatDuration(12400)).toBe("12.4s");
   });
+
+  it("does not invent 220ms per tool when duration is unknown", () => {
+    const run: AgentRun = {
+      id: "run_nodur",
+      source: "json",
+      agentName: "cursor",
+      framework: "cursor",
+      environment: "development",
+      startedAt: "2026-09-23T00:00:00.000Z",
+      input: [{ role: "user", content: "inspect" }],
+      steps: Array.from({ length: 40 }, (_, index) => ({
+        id: `step_${index}`,
+        type: "tool_call" as const,
+        name: "Read"
+      })),
+      finalOutput: "done"
+    };
+
+    const tree = buildTraceTree(run);
+    expect(tree.totalMs).toBe(1);
+    expect(tree.roots.every((node) => node.durationMs === 0)).toBe(true);
+  });
 });

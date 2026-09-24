@@ -101,4 +101,70 @@ describe("evaluateRun", () => {
     expect(result.failureType).toBe("none");
     expect(result.passed).toBe(true);
   });
+
+  it("does not treat the word timeout in chat or docs as a run timeout", () => {
+    const result = evaluateRun(
+      baseRun({
+        input: [
+          {
+            role: "user",
+            content:
+              "Continue the architecture. Detect timeouts properly. The run hit a timeout is bad copy for false alarms."
+          }
+        ],
+        steps: [
+          {
+            id: "step_read",
+            type: "tool_call",
+            name: "Read",
+            input: { path: "docs/architecture.md" },
+            output: "Timeout handling: prefer step.error timed out over substring timeout."
+          },
+          {
+            id: "step_write",
+            type: "tool_call",
+            name: "Write",
+            input: { path: "lib/evaluator.ts" },
+            output: "updated timeout detector"
+          }
+        ],
+        finalOutput: "Timeout detector fixed so mentioning timeout in a prompt no longer fails the run."
+      })
+    );
+
+    expect(result.failureType).toBe("none");
+    expect(result.passed).toBe(true);
+  });
+
+  it("flags real timed-out tool errors with evidence on that step", () => {
+    const result = evaluateRun(
+      baseRun({
+        steps: [
+          {
+            id: "step_ok",
+            type: "tool_call",
+            name: "Shell",
+            output: "ok"
+          },
+          {
+            id: "step_timeout",
+            traceId: "trace_t",
+            spanId: "span_t",
+            type: "tool_call",
+            name: "GetDynamicTools",
+            error: "Request timed out after 30000ms"
+          }
+        ],
+        finalOutput: "Stopped early."
+      })
+    );
+
+    expect(result.failureType).toBe("timeout");
+    expect(result.evidence).toEqual([
+      expect.objectContaining({
+        stepId: "step_timeout",
+        quote: "Request timed out after 30000ms"
+      })
+    ]);
+  });
 });

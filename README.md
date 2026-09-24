@@ -33,12 +33,17 @@ npm run dev
 
 Open http://localhost:3000
 
-1. **Connect Cursor** — enables hooks + local MCP (auto-capture on agent stop)  
-2. Or **Import this session** — one-shot load of the live Cursor chat  
-3. **Inspect** → **Confirm** → writes `evals/cases/case_*.json`  
-4. Ask Cursor: `list EvalOS issues` (MCP)
+1. **Results** — real live runs / harness results (sample is opt-in only)  
+2. **Data** — browse SQLite tables + run property graph (Neo4j optional later)  
+3. Auto Cursor hooks on `npm run dev` — agent stop captures  
+4. Or POST any agent JSON/OTLP to `/api/runs`  
+5. **Inspect** → **Confirm** → `evals/cases/case_*.json`  
 
-Keep EvalOS running on `:3000`. Data lives in `.evalos/evalos.db`. No cloud. No signup.
+```bash
+npx evalos init && npx evalos dev
+```
+
+Keep EvalOS on `:3000`. Data lives in `.evalos/evalos.db`. No cloud. No signup. No seeded demo rows.
 
 ---
 
@@ -135,6 +140,7 @@ npx evalos ingest trace.json http://localhost:3000
 
 - **Auto-capture:** Cursor stop / tool failure → full transcript ingest (port `3000`)
 - **Confirm → repo:** writes `evals/cases/*.json` as the durable regression source of truth
+- **Results UI:** real live runs / harness results only (sample is opt-in) — pass ratio, histogram, scatter, case × version cells
 - **Online watch:** every new capture scored against confirmed cases (`GET /api/watch`)
 - **Issue groups:** recurring failures collapse by fingerprint in Inspect + Releases
 - **CI gate:** `npm run gate` + `.github/workflows/evalos-gate.yml` → `pass | fail | incomplete`
