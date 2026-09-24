@@ -65,7 +65,8 @@
     "lint": "eslint app lib scripts tests next.config.ts drizzle.config.ts eslint.config.mjs vitest.config.mts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "gate": "node scripts/ci-gate.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

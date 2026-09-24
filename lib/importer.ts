@@ -1,11 +1,12 @@
 import type { AgentRun } from "./types";
 import { isOpenTelemetryPayload, parseOpenTelemetryRuns } from "./opentelemetry";
+import { redactRun } from "./redact";
 
 export function parseRunsFromJson(raw: string): AgentRun[] {
   const parsed = JSON.parse(raw) as unknown;
-  if (isOpenTelemetryPayload(parsed)) return parseOpenTelemetryRuns(parsed);
+  if (isOpenTelemetryPayload(parsed)) return parseOpenTelemetryRuns(parsed).map(redactRun);
   const runs = Array.isArray(parsed) ? parsed : [parsed];
-  return runs.map((run, index) => normalizeRun(run, index));
+  return runs.map((run, index) => redactRun(normalizeRun(run, index)));
 }
 
 function normalizeRun(value: unknown, index: number): AgentRun {
