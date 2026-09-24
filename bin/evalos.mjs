@@ -110,6 +110,15 @@ if (command === "gate") {
   process.exit(result.status ?? 1);
 }
 
+if (command === "demo") {
+  const script = join(repoRoot, "scripts", "demo.mjs");
+  const result = spawnSync(process.execPath, [script], {
+    cwd: repoRoot,
+    stdio: "inherit"
+  });
+  process.exit(result.status ?? 1);
+}
+
 printHelp();
 
 function readConfigServerUrl() {
@@ -128,6 +137,7 @@ function printHelp() {
   console.log(`EvalOS — agent failures → regression tests
 
 Commands:
+  npx evalos demo                  15s: fail → Confirm → case → CI red
   npx evalos init                  Create config + evals/cases scaffold
   npx evalos dev                   Start local UI on :3000
   npx evalos ingest <trace.json>   POST JSON / OTLP traces

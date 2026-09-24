@@ -10,3 +10,6 @@ coverage/
 .env.local
 npm-debug.log*
 *.tsbuildinfo
+# Local demo artifacts (npm run demo)
+evals/cases/case_demo_*.json
+fixtures/demo-harness-results.json

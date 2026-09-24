@@ -1,0 +1,60 @@
+{
+  "runs": [
+    {
+      "id": "demo_viral_loop",
+      "source": "json",
+      "agentName": "support-agent",
+      "framework": "fixture",
+      "environment": "demo",
+      "startedAt": "2026-09-23T18:00:00.000Z",
+      "model": "demo-model",
+      "input": [
+        {
+          "role": "user",
+          "content": "Refund order #48291. Charged twice for broken headphones."
+        }
+      ],
+      "steps": [
+        {
+          "id": "step_msg",
+          "traceId": "trace_demo_viral",
+          "spanId": "span_msg",
+          "type": "message",
+          "name": "assistant",
+          "output": "I'll look up the order."
+        },
+        {
+          "id": "step_1",
+          "traceId": "trace_demo_viral",
+          "spanId": "span_1",
+          "parentSpanId": "span_msg",
+          "type": "tool_call",
+          "name": "lookup_order",
+          "input": { "orderId": "48291" },
+          "error": "Missing order id in downstream payment API"
+        },
+        {
+          "id": "step_2",
+          "traceId": "trace_demo_viral",
+          "spanId": "span_2",
+          "parentSpanId": "span_msg",
+          "type": "tool_call",
+          "name": "lookup_order",
+          "input": { "orderId": "48291" },
+          "error": "Missing order id in downstream payment API"
+        },
+        {
+          "id": "step_3",
+          "traceId": "trace_demo_viral",
+          "spanId": "span_3",
+          "parentSpanId": "span_msg",
+          "type": "tool_call",
+          "name": "lookup_order",
+          "input": { "orderId": "48291" },
+          "error": "Missing order id in downstream payment API"
+        }
+      ],
+      "finalOutput": "I still cannot refund that order. Can you clarify?"
+    }
+  ]
+}

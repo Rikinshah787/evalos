@@ -1,72 +1,81 @@
 # EvalOS
 
-### Agent failures → typed **JEV** regression tests
+### Your agent failed once. Make sure it never fails the same way twice.
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![CI](https://github.com/Rikinshah787/evalos/actions/workflows/ci.yml/badge.svg)](https://github.com/Rikinshah787/evalos/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/Rikinshah787/evalos?style=social)](https://github.com/Rikinshah787/evalos/stargazers)
-![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
-![SQLite](https://img.shields.io/badge/storage-SQLite-0F766E)
-![Cursor](https://img.shields.io/badge/Cursor-hooks-18181b)
-![Claude Code](https://img.shields.io/badge/Claude%20Code-hook-0F766E)
 
-![EvalOS product preview](docs/assets/evalos-preview.svg)
+```bash
+npm install && npm run demo
+```
 
-**EvalOS** is local-first eval infrastructure for agentic software.  
-It captures real **Cursor** and **Claude Code** sessions, turns failures into **JEV** records (**Judge · Evidence · Verdict**), and lets you promote confirmed findings into regression cases your harness can run forever.
+```text
+User   Refund order #48291...
+↻ lookup_order({"orderId":"48291"})  Missing order id…
+↻ lookup_order({"orderId":"48291"})  Missing order id…
+↻ lookup_order({"orderId":"48291"})  Missing order id…   ← stuck loop
 
-> Your unit tests prove *code* works.  
-> EvalOS proves the *agent* still solves the failures you already paid for.
+Judge · Evidence · Verdict → Confirm
+→ wrote evals/cases/case_demo_viral_loop.json
+→ CI gate: FAIL  (candidate still loops)
+```
 
-**If this saves you from re-learning the same agent bug twice → [★ Star the repo](https://github.com/Rikinshah787/evalos).**
+**That’s EvalOS:** capture a real agent failure → attach exact tool evidence → you Confirm → it becomes a regression case → CI goes red if it comes back.
+
+No cloud. No signup. Local SQLite.
+
+**If that should exist → [★ Star the repo](https://github.com/Rikinshah787/evalos).**
 
 ---
 
-## 60-second try
+## Try it (15 seconds)
 
 ```bash
 git clone https://github.com/Rikinshah787/evalos.git
 cd evalos
 npm install
+npm run demo          # terminal: fail → Confirm → case → CI red
+```
+
+Or:
+
+```bash
+npx evalos demo
+```
+
+## Open the UI (60 seconds)
+
+```bash
 npm run dev
 ```
 
 Open http://localhost:3000
 
-1. **Results** — real live runs / harness results (sample is opt-in only)  
-2. **Data** — browse SQLite tables + run property graph (Neo4j optional later)  
-3. Auto Cursor hooks on `npm run dev` — agent stop captures  
-4. Or POST any agent JSON/OTLP to `/api/runs`  
-5. **Inspect** → **Confirm** → `evals/cases/case_*.json`  
+1. Auto Cursor hooks on boot — agent stop captures into EvalOS  
+2. **Inspect** a finding → **Confirm** (`C`) / **Reject** (`R`)  
+3. Confirmed findings write `evals/cases/case_*.json`  
+4. `npm run gate` → `pass | fail | incomplete`
 
 ```bash
 npx evalos init && npx evalos dev
 ```
 
-Keep EvalOS on `:3000`. Data lives in `.evalos/evalos.db`. No cloud. No signup. No seeded demo rows.
+Data: `.evalos/evalos.db`. Keep the app on `:3000`.
 
 ---
 
-## Why teams care
+## Why this spreads
 
-Agent failures disappear into chat. Tomorrow’s model “fixes” them by accident — until they regress.
+Agent failures die in chat. Tomorrow’s model “fixes” them by accident — until they regress in prod.
 
 | Without EvalOS | With EvalOS |
 | --- | --- |
-| “It failed once in chat” | Typed `jev.eval.v1` record |
-| Screenshot of a tool error | Evidence linked to exact step / span |
-| Hope the next run is better | Confirmed case → export → release gate |
+| “It failed once in Cursor” | Confirmed case file in the repo |
+| Screenshot of a tool error | Evidence linked to exact steps |
+| Hope the next run is better | CI blocks the same failure |
 
-```ts
-type JevEvaluation = {
-  schema: "jev.eval.v1";
-  judge: JevJudge;       // who decided (triage signal)
-  evidence: JevEvidence[]; // what proved it
-  verdict: JevVerdict;   // pass | fail | review
-};
-```
-
-**Product truth:** automatic scores are *triage signals*. **Confirmed JEV cases** are the source of truth.
+**Product truth:** automatic scores are *triage signals*. **Confirmed cases** are the source of truth.
 
 ---
 
@@ -78,16 +87,15 @@ type JevEvaluation = {
 | Human confirm → durable case | ✅ core loop | optional | traces | datasets |
 | Local SQLite, no signup | ✅ | ✅ CLI | cloud | cloud |
 | CI `pass \| fail \| incomplete` | ✅ | custom | custom | gates |
-| LLM-as-judge playground | thin triage | ✅ | ✅ | ✅ |
 
-EvalOS is not “another scoreboard.” It is **Sentry for agent failures you already hit** — then Promptfoo/pytest forever.
+EvalOS is **Sentry for agent failures you already hit** — then Promptfoo/pytest forever.
 
 ---
 
 ## Product loop
 
 ```text
-Cursor or Claude Code session
+Cursor / Claude Code / any agent JSON
             │
             ▼
      Capture + normalize
@@ -99,10 +107,7 @@ Cursor or Claude Code session
      Human confirms / rejects
             │
             ▼
-   Draft case → export / harness
-            │
-            ▼
-   POST /api/results → pass|fail|incomplete
+   evals/cases/*.json → harness / CI
 ```
 
 ---
@@ -111,24 +116,13 @@ Cursor or Claude Code session
 
 ### Cursor
 
-Dashboard **Connect Cursor**, or:
-
-- `.cursor/hooks.json`
-- `.cursor/hooks/evalos-capture.mjs`
-
-Posts on `stop`, `sessionEnd`, and `postToolUseFailure` while EvalOS is running.
+`npm run dev` auto-wires hooks + MCP. Or dashboard **Connect Cursor**.
 
 ### Claude Code
 
-Dashboard **Connect Claude Code**, or:
+Dashboard **Connect Claude Code**, or copy `.claude/evalos.settings.example.json` → `.claude/settings.json`.
 
-```powershell
-Copy-Item .claude\evalos.settings.example.json .claude\settings.json
-```
-
-### Import / OTLP
-
-Paste JSON in **Settings**, or:
+### Any agent
 
 ```bash
 npx evalos ingest trace.json http://localhost:3000
@@ -136,46 +130,27 @@ npx evalos ingest trace.json http://localhost:3000
 
 ---
 
-## What ships today
+## What ships
 
-- **Auto-capture:** Cursor stop / tool failure → full transcript ingest (port `3000`)
-- **Confirm → repo:** writes `evals/cases/*.json` as the durable regression source of truth
-- **Results UI:** real live runs / harness results only (sample is opt-in) — pass ratio, histogram, scatter, case × version cells
-- **Online watch:** every new capture scored against confirmed cases (`GET /api/watch`)
-- **Issue groups:** recurring failures collapse by fingerprint in Inspect + Releases
-- **CI gate:** `npm run gate` + `.github/workflows/evalos-gate.yml` → `pass | fail | incomplete`
-- **Redaction:** API keys / tokens stripped on ingest
-- **Local MCP:** list / get / import / confirm / watch
-- Dark / light UI with capture toasts + Confirm/Reject shortcuts (`C` / `R`)
-- Zod-validated ingestion and stable API errors
-- SQLite persistence for runs, evaluations, evidence, reviews, draft cases
-- Deterministic evidence-backed triage (loop = same tool + same inputs)
+- Auto-capture (Cursor stop / tool failure)
+- Confirm → `evals/cases/*.json`
+- Results UI (live runs only; sample opt-in)
+- Online watch vs confirmed cases
+- Issue groups by failure fingerprint
+- CI gate + GitHub Action
+- Secret redaction on ingest
+- Local MCP
 - Exports: JSONL, Promptfoo, pytest
-- CI: typecheck, lint, tests, build
 
-EvalOS owns the IDE failure → owned test loop.
-
-Launch playbook: [`docs/LAUNCH.md`](docs/LAUNCH.md)
-
----
-
-## Release gate API
-
-```http
-POST /api/results
-```
-
-Returns `ciStatus`: `pass` | `fail` | `incomplete`.
+Launch / post copy: [`docs/LAUNCH.md`](docs/LAUNCH.md)
 
 ---
 
 ## Development
 
 ```bash
-npm run typecheck
-npm run lint
-npm test
-npm run build
+npm run demo
+npm run typecheck && npm run lint && npm test && npm run build
 ```
 
 ---
@@ -184,4 +159,4 @@ npm run build
 
 Built for engineers who refuse to treat agent regressions as vibes.
 
-**[★ Star EvalOS](https://github.com/Rikinshah787/evalos)** · [Open an issue](https://github.com/Rikinshah787/evalos/issues) · Apache-2.0
+**[★ Star EvalOS](https://github.com/Rikinshah787/evalos)** · [Issues](https://github.com/Rikinshah787/evalos/issues) · Apache-2.0
