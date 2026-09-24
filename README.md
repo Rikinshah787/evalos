@@ -144,7 +144,7 @@ npx evalos ingest trace.json http://localhost:3000
 - Harness results API with `incomplete` for missing data (never a fake pass)
 - CI: typecheck, lint, tests, build
 
-**Not claiming:** cloud production monitoring like Lemma. EvalOS owns the IDE failure → owned test loop.
+EvalOS owns the IDE failure → owned test loop.
 
 ---
 
