@@ -24,6 +24,8 @@ import {
   Upload,
   XCircle
 } from "lucide-react";
+import { CompareResults } from "@/components/results/CompareResults";
+import { buildCompareReport, sampleCompareFixture, type CompareReport } from "@/lib/compare";
 import { buildAnalytics } from "@/lib/analytics";
 import { evaluateRuns } from "@/lib/evaluator";
 import { exportJsonl, exportPromptfoo, exportPytest, toEvalCase } from "@/lib/exporters";
@@ -31,7 +33,7 @@ import { groupIssues } from "@/lib/issues";
 import type { AgentRun, EvaluatedRun, ReviewRecord } from "@/lib/types";
 import { TraceWaterfall } from "@/components/traces/TraceWaterfall";
 
-type View = "dashboard" | "inspect" | "runs" | "datasets" | "releases" | "settings";
+type View = "dashboard" | "inspect" | "runs" | "results" | "datasets" | "releases" | "settings";
 type ExportFormat = "jsonl" | "promptfoo" | "pytest";
 type Theme = "light" | "dark";
 
@@ -354,6 +356,7 @@ export default function Home() {
     dashboard: "Dashboard",
     inspect: "Inspect",
     runs: "Runs",
+    results: "Results",
     datasets: "Datasets",
     releases: "Releases",
     settings: "Settings"
@@ -370,9 +373,10 @@ export default function Home() {
         <nav className="nav" aria-label="Primary">
           <NavButton active={view === "dashboard"} onClick={() => setView("dashboard")} icon={<LayoutDashboard size={18} />} label="Dashboard" />
           <NavButton active={view === "inspect"} onClick={() => setView("inspect")} icon={<Eye size={18} />} label="Inspect" />
+          <NavButton active={view === "results"} onClick={() => setView("results")} icon={<GitCompareArrows size={18} />} label="Results" />
           <NavButton active={view === "runs"} onClick={() => setView("runs")} icon={<ClipboardList size={18} />} label="Runs" />
           <NavButton active={view === "datasets"} onClick={() => setView("datasets")} icon={<FileJson size={18} />} label="Datasets" />
-          <NavButton active={view === "releases"} onClick={() => setView("releases")} icon={<GitCompareArrows size={18} />} label="Releases" />
+          <NavButton active={view === "releases"} onClick={() => setView("releases")} icon={<Database size={18} />} label="Releases" />
           <NavButton active={view === "settings"} onClick={() => setView("settings")} icon={<Settings size={18} />} label="Settings" />
         </nav>
 
@@ -464,6 +468,7 @@ export default function Home() {
               onImportSession={() => void importCursorSession()}
               onInspect={() => setView("inspect")}
               onImport={() => setView("settings")}
+              onResults={() => setView("results")}
             />
           ) : null}
 
@@ -492,6 +497,8 @@ export default function Home() {
               onLoadSession={() => void importCursorSession()}
             />
           ) : null}
+
+          {view === "results" ? <ResultsView /> : null}
 
           {view === "runs" ? (
             <RunsView
@@ -572,7 +579,8 @@ function DashboardView({
   onConnectClaude,
   onImportSession,
   onInspect,
-  onImport
+  onImport,
+  onResults
 }: {
   cursorConnected: boolean;
   claudeConnected: boolean;
@@ -589,6 +597,7 @@ function DashboardView({
   onImportSession: () => void;
   onInspect: () => void;
   onImport: () => void;
+  onResults: () => void;
 }) {
   return (
     <div className="hero-center">
@@ -638,6 +647,10 @@ function DashboardView({
         <button className="prompt-card" type="button" disabled={busy || claudeConnected} onClick={onConnectClaude}>
           <span><CheckCircle2 size={16} /></span>
           Connect Claude Code (optional second source)
+        </button>
+        <button className="prompt-card" type="button" onClick={onResults}>
+          <span><GitCompareArrows size={16} /></span>
+          Open Results — model/version compare grid
         </button>
         <button className="prompt-card" type="button" onClick={onInspect}>
           <span><TriangleAlert size={16} /></span>
@@ -952,6 +965,81 @@ function DatasetsView({
         <textarea className="export-box" readOnly value={exportText} />
       </section>
     </div>
+  );
+}
+
+function ResultsView() {
+  const [report, setReport] = useState<CompareReport>(() => {
+    const fixture = sampleCompareFixture();
+    return buildCompareReport(fixture.cases, fixture.results, {
+      title: "Claude vs GPT",
+      baselineVersion: "openai:gpt-4o",
+      candidateVersion: "anthropic:claude-3-5-sonnet"
+    });
+  });
+  const [source, setSource] = useState("sample");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/compare", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as { report?: CompareReport; source?: string };
+      })
+      .then((payload) => {
+        if (cancelled || !payload?.report) return;
+        startTransition(() => {
+          setReport(payload.report as CompareReport);
+          setSource(payload.source ?? "sample");
+        });
+      })
+      .catch(() => {
+        // Keep local sample.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function loadSample() {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/compare", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          useSample: true,
+          baselineVersion: "openai:gpt-4o",
+          candidateVersion: "anthropic:claude-3-5-sonnet",
+          results: []
+        })
+      });
+      const payload = (await response.json()) as {
+        report?: CompareReport;
+        source?: string;
+        error?: { message?: string };
+      };
+      if (!response.ok) {
+        setError(payload.error?.message ?? "Could not load sample.");
+        return;
+      }
+      if (payload.report) setReport(payload.report);
+      if (payload.source) setSource(payload.source);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load sample.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      {error ? <p className="subtle">{error}</p> : null}
+      <CompareResults report={report} source={source} busy={busy} onLoadSample={() => void loadSample()} />
+    </>
   );
 }
 
