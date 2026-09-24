@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { evaluateCiGate } from "@/lib/ci-gate";
 import { compareReleaseResults, defaultThresholds } from "@/lib/release";
 import { fromUnknownError, apiError } from "@/lib/validation/errors";
 import { releaseResultsRequestSchema } from "@/lib/validation/schemas";
@@ -24,10 +25,30 @@ export async function POST(request: Request) {
       parsed.data.thresholds ?? defaultThresholds
     );
 
+    const gate = evaluateCiGate({
+      baselineVersion: parsed.data.baselineVersion,
+      candidateVersion: parsed.data.candidateVersion,
+      results: parsed.data.results
+    });
+
     return NextResponse.json({
       comparison,
-      ciStatus: comparison.ciStatus
+      gate,
+      ciStatus: gate.ciStatus === "incomplete" ? "incomplete" : gate.ciStatus === "fail" ? "fail" : comparison.ciStatus
     });
+  } catch (error) {
+    return fromUnknownError(error);
+  }
+}
+
+export async function GET() {
+  try {
+    const gate = evaluateCiGate({
+      baselineVersion: "baseline",
+      candidateVersion: "candidate",
+      results: []
+    });
+    return NextResponse.json({ gate, ciStatus: gate.ciStatus });
   } catch (error) {
     return fromUnknownError(error);
   }

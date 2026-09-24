@@ -46,6 +46,15 @@ const tools = [
       required: ["runId"],
       additionalProperties: false
     }
+  },
+  {
+    name: "evalos_watch",
+    description: "Score live runs against confirmed evals/cases (regressed / clear / watching).",
+    inputSchema: {
+      type: "object",
+      properties: { runId: { type: "string" } },
+      additionalProperties: false
+    }
   }
 ];
 
@@ -157,6 +166,12 @@ async function callTool(name, args) {
     const body = await response.json();
     if (!response.ok) throw new Error(body.error?.message || "Confirm failed");
     return JSON.stringify(body, null, 2);
+  }
+
+  if (name === "evalos_watch") {
+    const path = args.runId ? `/api/watch?runId=${encodeURIComponent(args.runId)}` : "/api/watch";
+    const data = await getJson(path);
+    return JSON.stringify(data, null, 2);
   }
 
   throw new Error(`Unknown tool: ${name}`);

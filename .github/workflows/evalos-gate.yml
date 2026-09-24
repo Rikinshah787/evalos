@@ -1,0 +1,55 @@
+name: EvalOS regression gate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      results_path:
+        description: Optional harness results JSON path
+        required: false
+        default: ""
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Run EvalOS CI gate
+        id: gate
+        continue-on-error: true
+        run: |
+          if [ -n "${{ github.event.inputs.results_path }}" ] && [ -f "${{ github.event.inputs.results_path }}" ]; then
+            node scripts/ci-gate.mjs --results "${{ github.event.inputs.results_path }}" > gate.json
+          elif [ -f harness-results.json ]; then
+            node scripts/ci-gate.mjs --results harness-results.json > gate.json
+          else
+            node scripts/ci-gate.mjs > gate.json
+          fi
+          echo "status=$(node -e "console.log(JSON.parse(require('fs').readFileSync('gate.json','utf8')).ciStatus)")" >> "$GITHUB_OUTPUT"
+          cat gate.json
+
+      - name: Enforce gate
+        run: |
+          STATUS="${{ steps.gate.outputs.status }}"
+          echo "EvalOS gate status: $STATUS"
+          if [ "$STATUS" = "fail" ]; then
+            echo "Confirmed regression cases failed."
+            exit 1
+          fi
+          if [ "$STATUS" = "incomplete" ]; then
+            echo "No harness results yet — gate incomplete (non-blocking until cases+results exist)."
+            exit 0
+          fi
+          exit 0

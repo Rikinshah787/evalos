@@ -27,6 +27,7 @@ import {
 import { buildAnalytics } from "@/lib/analytics";
 import { evaluateRuns } from "@/lib/evaluator";
 import { exportJsonl, exportPromptfoo, exportPytest, toEvalCase } from "@/lib/exporters";
+import { groupIssues } from "@/lib/issues";
 import type { AgentRun, EvaluatedRun, ReviewRecord } from "@/lib/types";
 import { TraceWaterfall } from "@/components/traces/TraceWaterfall";
 
@@ -132,6 +133,7 @@ export default function Home() {
 
   const evaluatedRuns = useMemo(() => evaluateRuns(runs), [runs]);
   const analytics = useMemo(() => buildAnalytics(evaluatedRuns), [evaluatedRuns]);
+  const issueGroups = useMemo(() => groupIssues(evaluatedRuns, reviews), [evaluatedRuns, reviews]);
   const reviewRuns = useMemo(
     () =>
       evaluatedRuns
@@ -144,6 +146,32 @@ export default function Home() {
     () => evaluatedRuns.filter((run) => reviews[run.id]?.status === "confirmed"),
     [evaluatedRuns, reviews]
   );
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (view !== "inspect") return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.isContentEditable)) {
+        return;
+      }
+      if (!selectedRun) return;
+      if (event.key === "c" || event.key === "C") {
+        void persistReview(selectedRun, {
+          status: "confirmed",
+          expectedBehavior: reviews[selectedRun.id]?.expectedBehavior || selectedRun.evaluation.suggestedAssertion
+        });
+      }
+      if (event.key === "r" || event.key === "R") {
+        void persistReview(selectedRun, {
+          status: "rejected",
+          expectedBehavior: reviews[selectedRun.id]?.expectedBehavior || selectedRun.evaluation.suggestedAssertion
+        });
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   const datasetRuns = confirmedRuns.length > 0 ? confirmedRuns : reviewRuns.slice(0, 3);
   const exportText = buildExport(datasetRuns, exportFormat, reviews);
   const regressionCases = datasetRuns.map((run) => toEvalCase(run, reviews[run.id]));
@@ -442,6 +470,7 @@ export default function Home() {
           {view === "inspect" ? (
             <InspectView
               reviewRuns={reviewRuns}
+              issueGroups={issueGroups}
               selectedRun={selectedRun}
               reviews={reviews}
               onSelect={setSelectedRunId}
@@ -484,7 +513,9 @@ export default function Home() {
             />
           ) : null}
 
-          {view === "releases" ? <ReleasesView confirmedCount={confirmedRuns.length} /> : null}
+          {view === "releases" ? (
+            <ReleasesView confirmedCount={confirmedRuns.length} runs={evaluatedRuns} reviews={reviews} />
+          ) : null}
 
           {view === "settings" ? (
             <SettingsView
@@ -670,6 +701,7 @@ function DashboardView({
 
 function InspectView({
   reviewRuns,
+  issueGroups,
   selectedRun,
   reviews,
   onSelect,
@@ -679,6 +711,7 @@ function InspectView({
   onLoadSession
 }: {
   reviewRuns: EvaluatedRun[];
+  issueGroups: ReturnType<typeof groupIssues>;
   selectedRun?: EvaluatedRun;
   reviews: Record<string, ReviewRecord>;
   onSelect: (id: string) => void;
@@ -704,12 +737,32 @@ function InspectView({
   return (
     <div className="inspect-layout">
       <section className="panel">
-            <div className="panel-header">
+        <div className="panel-header">
           <div>
             <h2>Queue</h2>
-            <p className="subtle">Sessions that may need your decision.</p>
+            <p className="subtle">Grouped recurring failures, then individual sessions.</p>
           </div>
         </div>
+        {issueGroups.length > 0 ? (
+          <div className="run-list" style={{ marginBottom: 12 }}>
+            {issueGroups.slice(0, 6).map((group) => (
+              <button
+                key={group.fingerprint}
+                className="run-card"
+                type="button"
+                onClick={() => onSelect(group.latestRunId)}
+              >
+                <div className="run-title">
+                  <h3>{group.title}</h3>
+                  <span className={`tag ${group.risk === "high" ? "danger" : group.risk === "medium" ? "warn" : "ok"}`}>
+                    ×{group.count}
+                  </span>
+                </div>
+                <p className="subtle">{group.reason}</p>
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className="run-list">
           {reviewRuns.map((run) => (
             <button
@@ -727,7 +780,11 @@ function InspectView({
               <p className="subtle">{run.evaluation.reason}</p>
               <div className="tags">
                 <span className="tag">{run.evaluation.failureType.replaceAll("_", " ")}</span>
-                {review ? <span className={`tag ${review.status === "confirmed" ? "ok" : review.status === "rejected" ? "danger" : "warn"}`}>{review.status}</span> : null}
+                {reviews[run.id] ? (
+                  <span className={`tag ${reviews[run.id]?.status === "confirmed" ? "ok" : reviews[run.id]?.status === "rejected" ? "danger" : "warn"}`}>
+                    {reviews[run.id]?.status}
+                  </span>
+                ) : null}
               </div>
             </button>
           ))}
@@ -746,7 +803,7 @@ function InspectView({
             <div className="field-label">Review</div>
             <h2>What went wrong in this run?</h2>
             <p className="subtle">
-              Read the finding in plain English, check the highlighted steps, then Confirm or Reject.
+              Read the finding in plain English, check the highlighted steps, then Confirm or Reject. Shortcuts: C confirm · R reject
             </p>
           </div>
         </div>
@@ -898,23 +955,84 @@ function DatasetsView({
   );
 }
 
-function ReleasesView({ confirmedCount }: { confirmedCount: number }) {
+function ReleasesView({
+  confirmedCount,
+  runs,
+  reviews
+}: {
+  confirmedCount: number;
+  runs: EvaluatedRun[];
+  reviews: Record<string, ReviewRecord>;
+}) {
+  const [watchSummary, setWatchSummary] = useState<{ caseCount: number; regressed: number; runCount: number } | null>(
+    null
+  );
+  const groups = useMemo(() => groupIssues(runs, reviews), [runs, reviews]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/watch", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const payload = (await response.json()) as { caseCount?: number; regressed?: number; runCount?: number };
+        if (!cancelled) {
+          setWatchSummary({
+            caseCount: payload.caseCount ?? 0,
+            regressed: payload.regressed ?? 0,
+            runCount: payload.runCount ?? 0
+          });
+        }
+      })
+      .catch(() => {
+        // offline ok
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [runs.length, confirmedCount]);
+
   return (
     <section className="panel">
       <div className="panel-header">
         <div>
-          <h2>Release gate</h2>
-          <p className="subtle">Post harness results to compare baseline vs candidate.</p>
+          <h2>Release gate + online watch</h2>
+          <p className="subtle">Confirmed cases are watched on every new capture, then gated in CI.</p>
         </div>
       </div>
-      <p className="subtle">
-        You have {confirmedCount} confirmed case{confirmedCount === 1 ? "" : "s"} ready for harness execution.
-      </p>
+
+      <div className="metrics" style={{ marginBottom: 16 }}>
+        <Metric label="Confirmed cases" value={String(confirmedCount)} />
+        <Metric label="Issue groups" value={String(groups.length)} />
+        <Metric label="Cases on disk" value={String(watchSummary?.caseCount ?? "—")} />
+        <Metric label="Watch regressions" value={String(watchSummary?.regressed ?? "—")} />
+      </div>
+
+      {groups.length > 0 ? (
+        <div className="run-list" style={{ marginBottom: 16 }}>
+          {groups.slice(0, 8).map((group) => (
+            <div key={group.fingerprint} className="run-card">
+              <div className="run-title">
+                <h3>{group.title}</h3>
+                <span className="tag danger">×{group.count}</span>
+              </div>
+              <p className="subtle">{group.reason}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="subtle">No open issue groups. Confirm failures in Inspect to grow the gate.</p>
+      )}
+
       <div className="api-box" style={{ marginTop: 12 }}>
         <code>POST /api/results</code>
         <p className="subtle detail-line">
-          Body: baselineVersion, candidateVersion, results[]. Returns pass, fail, or incomplete.
+          Body: baselineVersion, candidateVersion, results[]. Returns pass, fail, or incomplete. Also runs the
+          confirmed-case CI gate.
         </p>
+        <code style={{ display: "block", marginTop: 10 }}>GET /api/watch</code>
+        <p className="subtle detail-line">Scores live runs against evals/cases/*.json (regressed / clear / watching).</p>
+        <code style={{ display: "block", marginTop: 10 }}>node scripts/ci-gate.mjs</code>
+        <p className="subtle detail-line">GitHub Action: .github/workflows/evalos-gate.yml</p>
       </div>
     </section>
   );

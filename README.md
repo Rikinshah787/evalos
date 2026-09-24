@@ -135,16 +135,21 @@ npx evalos ingest trace.json http://localhost:3000
 
 - **Auto-capture:** Cursor stop / tool failure → full transcript ingest (port `3000`)
 - **Confirm → repo:** writes `evals/cases/*.json` as the durable regression source of truth
-- **Local MCP:** `evalos_list_issues`, `evalos_get_issue`, `evalos_import_session`, `evalos_confirm`
-- Dark / light product UI with live capture toasts
+- **Online watch:** every new capture scored against confirmed cases (`GET /api/watch`)
+- **Issue groups:** recurring failures collapse by fingerprint in Inspect + Releases
+- **CI gate:** `npm run gate` + `.github/workflows/evalos-gate.yml` → `pass | fail | incomplete`
+- **Redaction:** API keys / tokens stripped on ingest
+- **Local MCP:** list / get / import / confirm / watch
+- Dark / light UI with capture toasts + Confirm/Reject shortcuts (`C` / `R`)
 - Zod-validated ingestion and stable API errors
 - SQLite persistence for runs, evaluations, evidence, reviews, draft cases
 - Deterministic evidence-backed triage (loop = same tool + same inputs)
 - Exports: JSONL, Promptfoo, pytest
-- Harness results API with `incomplete` for missing data (never a fake pass)
 - CI: typecheck, lint, tests, build
 
 EvalOS owns the IDE failure → owned test loop.
+
+Launch playbook: [`docs/LAUNCH.md`](docs/LAUNCH.md)
 
 ---
 
