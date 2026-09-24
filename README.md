@@ -33,12 +33,12 @@ npm run dev
 
 Open http://localhost:3000
 
-1. **Import this session** — loads the live Cursor chat as a real traced run  
-2. Or paste [`fixtures/known-tool-error.json`](fixtures/known-tool-error.json) in **Settings**  
-3. **Inspect** → Confirm or Reject with evidence  
-4. **Datasets** → export JSONL / Promptfoo / pytest  
+1. **Connect Cursor** — enables hooks + local MCP (auto-capture on agent stop)  
+2. Or **Import this session** — one-shot load of the live Cursor chat  
+3. **Inspect** → **Confirm** → writes `evals/cases/case_*.json`  
+4. Ask Cursor: `list EvalOS issues` (MCP)
 
-Data lives in `.evalos/evalos.db`. No cloud. No signup.
+Keep EvalOS running on `:3000`. Data lives in `.evalos/evalos.db`. No cloud. No signup.
 
 ---
 
@@ -133,16 +133,18 @@ npx evalos ingest trace.json http://localhost:3000
 
 ## What ships today
 
-- Dark / light product UI with **JEV** as the core model
+- **Auto-capture:** Cursor stop / tool failure → full transcript ingest (port `3000`)
+- **Confirm → repo:** writes `evals/cases/*.json` as the durable regression source of truth
+- **Local MCP:** `evalos_list_issues`, `evalos_get_issue`, `evalos_import_session`, `evalos_confirm`
+- Dark / light product UI with live capture toasts
 - Zod-validated ingestion and stable API errors
 - SQLite persistence for runs, evaluations, evidence, reviews, draft cases
 - Deterministic evidence-backed triage (loop = same tool + same inputs)
-- Review queue with confirm / reject
 - Exports: JSONL, Promptfoo, pytest
 - Harness results API with `incomplete` for missing data (never a fake pass)
 - CI: typecheck, lint, tests, build
 
-Launch playbook: [`docs/LAUNCH.md`](docs/LAUNCH.md)
+**Not claiming:** cloud production monitoring like Lemma. EvalOS owns the IDE failure → owned test loop.
 
 ---
 

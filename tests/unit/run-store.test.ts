@@ -64,4 +64,30 @@ describe("run store", () => {
 
     expect(listRuns()).toHaveLength(1);
   });
+
+  it("upserts an existing run with fresher steps", async () => {
+    const { upsertRuns } = await import("@/lib/run-store");
+    appendRuns([run("run_live")]);
+    upsertRuns([
+      {
+        ...run("run_live"),
+        steps: [
+          {
+            id: "step_2",
+            type: "tool_call",
+            name: "retry_edit",
+            error: "Still failing"
+          }
+        ],
+        finalOutput: "Still failing."
+      }
+    ]);
+
+    expect(listRuns()).toEqual([
+      expect.objectContaining({
+        id: "run_live",
+        steps: [expect.objectContaining({ id: "step_2", name: "retry_edit" })]
+      })
+    ]);
+  });
 });
