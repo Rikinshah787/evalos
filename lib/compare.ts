@@ -1,4 +1,4 @@
-import type { EvalCase, ReleaseResult } from "./types";
+import type { EvalCase, EvaluatedRun, ReleaseResult } from "./types";
 
 export type CompareCell = {
   caseId: string;
@@ -36,7 +36,94 @@ export type CompareReport = {
   scoreBuckets: Array<{ label: string; counts: Record<string, number> }>;
   scatter: Array<{ caseId: string; x: number; y: number }>;
   rows: CompareRow[];
+  emptyReason?: string;
 };
+
+export function emptyCompareReport(reason: string): CompareReport {
+  return {
+    title: "No real results yet",
+    versions: [],
+    summaries: [],
+    scoreBuckets: [],
+    scatter: [],
+    rows: [],
+    emptyReason: reason
+  };
+}
+
+/** Build a compare report from live evaluated runs — scores/latency/cost/output are real. */
+export function buildReportFromRuns(runs: EvaluatedRun[], options?: { title?: string }): CompareReport {
+  if (runs.length === 0) {
+    return emptyCompareReport("Import a Cursor session or connect hooks — Results only shows real captures.");
+  }
+
+  const results: ReleaseResult[] = [];
+  const cases: EvalCase[] = [];
+  const previews = new Map<string, string>();
+
+  for (const run of runs) {
+    const version = versionKey(run);
+    const caseId = `run_${run.id}`;
+    cases.push({
+      id: caseId,
+      name: run.agentName || run.id,
+      datasetId: "live-runs",
+      version: 1,
+      input: run.input,
+      expected: {
+        outcome: run.evaluation.outcome,
+        failureType: run.evaluation.failureType,
+        assertion: run.evaluation.suggestedAssertion
+      },
+      metadata: {
+        sourceRunId: run.id,
+        evidenceStepIds: run.evaluation.evidence.map((item) => item.stepId),
+        agentName: run.agentName,
+        model: run.model,
+        promptVersion: run.promptVersion,
+        risk: run.evaluation.risk,
+        createdAt: run.startedAt
+      }
+    });
+
+    results.push({
+      caseId,
+      agentVersion: version,
+      passed: run.evaluation.passed,
+      qualityScore: run.evaluation.score,
+      costUsd: run.totalCostUsd ?? 0,
+      latencyMs: run.latencyMs ?? sumStepLatency(run)
+    });
+
+    previews.set(`${caseId}::${version}`, realPreview(run));
+  }
+
+  const versions = [...new Set(results.map((item) => item.agentVersion))];
+  const report = buildCompareReport(cases, results, {
+    title:
+      options?.title ??
+      (versions.length >= 2 ? `${versions[0]} vs ${versions[1]}` : `Live results · ${versions[0] ?? "runs"}`)
+  });
+
+  for (const row of report.rows) {
+    for (const version of report.versions) {
+      const cell = row.cells[version];
+      if (!cell) continue;
+      const preview = previews.get(`${row.caseId}::${version}`);
+      if (preview) cell.outputPreview = preview;
+      cell.tokens = undefined;
+      cell.tokensPerSec = undefined;
+    }
+  }
+
+  return report;
+}
+
+export function versionKey(run: Pick<EvaluatedRun, "model" | "agentName" | "framework">): string {
+  if (run.model && run.model.trim()) return run.model;
+  if (run.agentName && run.framework) return `${run.agentName}/${run.framework}`;
+  return run.agentName || run.framework || "unknown";
+}
 
 export function buildCompareReport(
   cases: EvalCase[],
@@ -44,11 +131,13 @@ export function buildCompareReport(
   options?: { title?: string; baselineVersion?: string; candidateVersion?: string }
 ): CompareReport {
   const versions = uniqueVersions(results, options?.baselineVersion, options?.candidateVersion);
+  if (versions.length === 0 && cases.length === 0) {
+    return emptyCompareReport("No confirmed cases or harness results yet.");
+  }
+
   const caseMap = new Map(cases.map((item) => [item.id, item]));
   const caseIds =
-    cases.length > 0
-      ? cases.map((item) => item.id)
-      : [...new Set(results.map((item) => item.caseId))];
+    cases.length > 0 ? cases.map((item) => item.id) : [...new Set(results.map((item) => item.caseId))];
 
   const rows: CompareRow[] = caseIds.map((caseId) => {
     const evalCase = caseMap.get(caseId);
@@ -66,8 +155,6 @@ export function buildCompareReport(
         qualityScore: hit.qualityScore,
         costUsd: hit.costUsd,
         latencyMs: hit.latencyMs,
-        tokens: estimateTokens(hit),
-        tokensPerSec: estimateTokensPerSec(hit),
         outputPreview: previewFromCase(evalCase, hit)
       };
     }
@@ -101,9 +188,7 @@ export function sampleCompareFixture(): { cases: EvalCase[]; results: ReleaseRes
       name: "product find",
       datasetId: "support",
       version: 1,
-      input: [
-        { role: "user", content: "Can you help me find a specific product on your website?" }
-      ],
+      input: [{ role: "user", content: "Can you help me find a specific product on your website?" }],
       expected: {
         outcome: "successful",
         failureType: "none",
@@ -169,6 +254,17 @@ export function sampleCompareFixture(): { cases: EvalCase[]; results: ReleaseRes
   return { cases, results };
 }
 
+function realPreview(run: EvaluatedRun): string {
+  const ask = run.input[0]?.content?.slice(0, 100) ?? "";
+  const out = run.finalOutput?.slice(0, 160) || run.evaluation.reason;
+  const failure = run.evaluation.failureType !== "none" ? ` [${run.evaluation.failureType}]` : "";
+  return ask ? `Ask: ${ask}\n→ ${out}${failure}` : `${out}${failure}`;
+}
+
+function sumStepLatency(run: EvaluatedRun): number {
+  return run.steps.reduce((sum, step) => sum + (step.durationMs ?? 0), 0);
+}
+
 function cell(
   caseId: string,
   agentVersion: string,
@@ -192,7 +288,7 @@ function variablesFromCase(evalCase?: EvalCase): Array<{ key: string; value: str
   if (!evalCase) return [{ key: "case", value: "unknown" }];
   const user = evalCase.input.find((item) => item.role === "user")?.content ?? evalCase.name;
   return [
-    { key: "name", value: evalCase.name },
+    { key: "run", value: evalCase.metadata.sourceRunId || evalCase.id },
     { key: "question", value: user.slice(0, 140) }
   ];
 }
@@ -200,11 +296,11 @@ function variablesFromCase(evalCase?: EvalCase): Array<{ key: string; value: str
 function previewFromCase(evalCase: EvalCase | undefined, hit: ReleaseResult): string {
   if (!hit.passed) {
     return evalCase?.expected.assertion
-      ? `Failed assertion: ${evalCase.expected.assertion}`
-      : "Candidate failed this case.";
+      ? `Failed: ${evalCase.expected.failureType} — ${evalCase.expected.assertion}`
+      : "Failed case checks.";
   }
   const user = evalCase?.input.find((item) => item.role === "user")?.content;
-  return user ? `Handled: ${user.slice(0, 120)}` : "Passed case checks.";
+  return user ? `Passed · ${user.slice(0, 120)}` : "Passed case checks.";
 }
 
 function summarizeVersion(version: string, results: ReleaseResult[], caseIds: string[]): VersionSummary {
@@ -254,15 +350,6 @@ function buildScatter(
       return { caseId, x, y };
     })
     .filter((item): item is { caseId: string; x: number; y: number } => Boolean(item));
-}
-
-function estimateTokens(hit: ReleaseResult): number {
-  return Math.max(32, Math.round(hit.latencyMs / 12 + hit.qualityScore));
-}
-
-function estimateTokensPerSec(hit: ReleaseResult): number {
-  const tokens = estimateTokens(hit);
-  return hit.latencyMs <= 0 ? 0 : Math.round((tokens / hit.latencyMs) * 1000);
 }
 
 function round(value: number) {

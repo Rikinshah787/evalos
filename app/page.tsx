@@ -25,7 +25,7 @@ import {
   XCircle
 } from "lucide-react";
 import { CompareResults } from "@/components/results/CompareResults";
-import { buildCompareReport, sampleCompareFixture, type CompareReport } from "@/lib/compare";
+import { emptyCompareReport, type CompareReport } from "@/lib/compare";
 import { buildAnalytics } from "@/lib/analytics";
 import { evaluateRuns } from "@/lib/evaluator";
 import { exportJsonl, exportPromptfoo, exportPytest, toEvalCase } from "@/lib/exporters";
@@ -969,34 +969,60 @@ function DatasetsView({
 }
 
 function ResultsView() {
-  const [report, setReport] = useState<CompareReport>(() => {
-    const fixture = sampleCompareFixture();
-    return buildCompareReport(fixture.cases, fixture.results, {
-      title: "Claude vs GPT",
-      baselineVersion: "openai:gpt-4o",
-      candidateVersion: "anthropic:claude-3-5-sonnet"
-    });
-  });
-  const [source, setSource] = useState("sample");
+  const [report, setReport] = useState<CompareReport>(() =>
+    emptyCompareReport("Loading real captures…")
+  );
+  const [source, setSource] = useState("empty");
+  const [truthful, setTruthful] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  function applyPayload(payload: {
+    report?: CompareReport;
+    source?: string;
+    truthful?: boolean;
+  }) {
+    if (payload.report) setReport(payload.report);
+    if (payload.source) setSource(payload.source);
+    setTruthful(payload.truthful !== false);
+  }
+
+  async function refreshReal() {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/compare", { cache: "no-store" });
+      const payload = (await response.json()) as {
+        report?: CompareReport;
+        source?: string;
+        truthful?: boolean;
+        error?: { message?: string };
+      };
+      if (!response.ok) {
+        setError(payload.error?.message ?? "Could not load results.");
+        return;
+      }
+      applyPayload(payload);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load results.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/compare", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) return null;
-        return (await response.json()) as { report?: CompareReport; source?: string };
+        return (await response.json()) as { report?: CompareReport; source?: string; truthful?: boolean };
       })
       .then((payload) => {
         if (cancelled || !payload?.report) return;
-        startTransition(() => {
-          setReport(payload.report as CompareReport);
-          setSource(payload.source ?? "sample");
-        });
+        startTransition(() => applyPayload(payload));
       })
       .catch(() => {
-        // Keep local sample.
+        // Keep empty honest state.
       });
     return () => {
       cancelled = true;
@@ -1007,27 +1033,18 @@ function ResultsView() {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/compare", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          useSample: true,
-          baselineVersion: "openai:gpt-4o",
-          candidateVersion: "anthropic:claude-3-5-sonnet",
-          results: []
-        })
-      });
+      const response = await fetch("/api/compare?sample=1", { cache: "no-store" });
       const payload = (await response.json()) as {
         report?: CompareReport;
         source?: string;
+        truthful?: boolean;
         error?: { message?: string };
       };
       if (!response.ok) {
         setError(payload.error?.message ?? "Could not load sample.");
         return;
       }
-      if (payload.report) setReport(payload.report);
-      if (payload.source) setSource(payload.source);
+      applyPayload({ ...payload, truthful: false });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load sample.");
     } finally {
@@ -1038,7 +1055,14 @@ function ResultsView() {
   return (
     <>
       {error ? <p className="subtle">{error}</p> : null}
-      <CompareResults report={report} source={source} busy={busy} onLoadSample={() => void loadSample()} />
+      <CompareResults
+        report={report}
+        source={source}
+        truthful={truthful}
+        busy={busy}
+        onRefresh={() => void refreshReal()}
+        onLoadSample={() => void loadSample()}
+      />
     </>
   );
 }

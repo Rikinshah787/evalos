@@ -133,7 +133,7 @@ npx evalos ingest trace.json http://localhost:3000
 
 - **Auto-capture:** Cursor stop / tool failure → full transcript ingest (port `3000`)
 - **Confirm → repo:** writes `evals/cases/*.json` as the durable regression source of truth
-- **Results UI:** Promptfoo-style compare — pass ratio, histogram, scatter, case × version cells with score/latency/cost
+- **Results UI:** real live runs / harness results only (sample is opt-in) — pass ratio, histogram, scatter, case × version cells
 - **Online watch:** every new capture scored against confirmed cases (`GET /api/watch`)
 - **Issue groups:** recurring failures collapse by fingerprint in Inspect + Releases
 - **CI gate:** `npm run gate` + `.github/workflows/evalos-gate.yml` → `pass | fail | incomplete`

@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
-import { buildCompareReport, sampleCompareFixture } from "@/lib/compare";
-import { loadCaseFiles } from "@/lib/watch";
+import {
+  buildCompareReport,
+  buildReportFromRuns,
+  emptyCompareReport,
+  sampleCompareFixture
+} from "@/lib/compare";
+import { evaluateRuns } from "@/lib/evaluator";
 import { loadHarnessResults, saveHarnessResults } from "@/lib/harness-store";
+import { listRuns } from "@/lib/run-store";
+import { loadCaseFiles } from "@/lib/watch";
 import { fromUnknownError, apiError } from "@/lib/validation/errors";
 import { releaseResultsRequestSchema } from "@/lib/validation/schemas";
 import { z } from "zod";
@@ -11,37 +18,72 @@ const comparePostSchema = releaseResultsRequestSchema.extend({
   useSample: z.boolean().optional()
 });
 
+/**
+ * Truth order:
+ * 1. ?sample=1 → explicit demo only
+ * 2. persisted harness results (POST /api/compare or /api/results)
+ * 3. live evaluated runs from SQLite
+ * 4. confirmed case files with no results yet (empty matrix, honest)
+ * Never invent Claude-vs-GPT numbers by default.
+ */
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
-    const sample = url.searchParams.get("sample") === "1";
-    const stored = loadHarnessResults();
-    const cases = loadCaseFiles();
+    const wantSample = url.searchParams.get("sample") === "1";
 
-    if (sample || (!stored && cases.length === 0)) {
+    if (wantSample) {
       const fixture = sampleCompareFixture();
       const report = buildCompareReport(fixture.cases, fixture.results, {
-        title: "Claude vs GPT",
+        title: "Sample only (not your data)",
         baselineVersion: "openai:gpt-4o",
         candidateVersion: "anthropic:claude-3-5-sonnet"
       });
-      return NextResponse.json({ source: "sample", report, persisted: false });
+      return NextResponse.json({ source: "sample", report, persisted: false, truthful: false });
     }
 
-    if (!stored) {
+    const stored = loadHarnessResults();
+    if (stored && stored.results.length > 0) {
+      const cases = loadCaseFiles();
+      const report = buildCompareReport(
+        cases.length > 0 ? cases : inferCases(stored.results),
+        stored.results,
+        {
+          title: stored.title ?? "Harness results",
+          baselineVersion: stored.baselineVersion,
+          candidateVersion: stored.candidateVersion
+        }
+      );
+      return NextResponse.json({ source: "harness", report, persisted: true, truthful: true });
+    }
+
+    const liveRuns = evaluateRuns(listRuns());
+    if (liveRuns.length > 0) {
+      const report = buildReportFromRuns(liveRuns, { title: "Live captures" });
+      return NextResponse.json({
+        source: "live",
+        report,
+        persisted: false,
+        truthful: true,
+        runCount: liveRuns.length
+      });
+    }
+
+    const cases = loadCaseFiles();
+    if (cases.length > 0) {
       const report = buildCompareReport(cases, [], {
         title: "Confirmed cases (awaiting harness results)"
       });
-      return NextResponse.json({ source: "cases", report, persisted: false });
+      return NextResponse.json({ source: "cases", report, persisted: false, truthful: true });
     }
 
-    const report = buildCompareReport(cases.length > 0 ? cases : inferCases(stored.results), stored.results, {
-      title: stored.title,
-      baselineVersion: stored.baselineVersion,
-      candidateVersion: stored.candidateVersion
+    return NextResponse.json({
+      source: "empty",
+      report: emptyCompareReport(
+        "No live runs or harness results yet. Import this Cursor session, or POST real results to /api/compare."
+      ),
+      persisted: false,
+      truthful: true
     });
-
-    return NextResponse.json({ source: "harness", report, persisted: true });
   } catch (error) {
     return fromUnknownError(error);
   }
@@ -57,18 +99,12 @@ export async function POST(request: Request) {
 
     if (parsed.data.useSample) {
       const fixture = sampleCompareFixture();
-      saveHarnessResults({
-        title: "Claude vs GPT",
-        baselineVersion: "openai:gpt-4o",
-        candidateVersion: "anthropic:claude-3-5-sonnet",
-        results: fixture.results
-      });
       const report = buildCompareReport(fixture.cases, fixture.results, {
-        title: "Claude vs GPT",
+        title: "Sample only (not your data)",
         baselineVersion: "openai:gpt-4o",
         candidateVersion: "anthropic:claude-3-5-sonnet"
       });
-      return NextResponse.json({ source: "sample", report, persisted: true }, { status: 201 });
+      return NextResponse.json({ source: "sample", report, persisted: false, truthful: false }, { status: 201 });
     }
 
     saveHarnessResults({
@@ -85,7 +121,7 @@ export async function POST(request: Request) {
       candidateVersion: parsed.data.candidateVersion
     });
 
-    return NextResponse.json({ source: "harness", report, persisted: true }, { status: 201 });
+    return NextResponse.json({ source: "harness", report, persisted: true, truthful: true }, { status: 201 });
   } catch (error) {
     return fromUnknownError(error);
   }
