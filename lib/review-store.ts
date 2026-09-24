@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+import { relativeCasePath, writeCaseFile } from "./case-files";
 import { getDatabase } from "./db/connection";
 import { cases, reviews } from "./db/schema";
 import { getLatestEvaluationForRun } from "./evaluation-store";
@@ -31,20 +32,29 @@ export function getReviewMap(): Record<string, ReviewRecord> {
   return Object.fromEntries(listReviews().map((review) => [review.runId, review]));
 }
 
-export function upsertReview(input: ReviewUpsertInput): ReviewRecord {
+export function upsertReview(input: ReviewUpsertInput): ReviewRecord & { casePath?: string } {
   const db = getDatabase();
   const now = new Date().toISOString();
   const latestEvaluation = getLatestEvaluationForRun(input.runId);
   const evaluationId = input.evaluationId ?? latestEvaluation?.id;
+  const run = listRuns().find((item) => item.id === input.runId);
 
-  if (input.status === "confirmed" && (!latestEvaluation || latestEvaluation.evidence.length === 0)) {
-    throw new Error("Cannot confirm a finding without evidence linked to run steps.");
+  if (input.status === "confirmed") {
+    if (!latestEvaluation) {
+      throw new Error("Cannot confirm without an evaluation for this run.");
+    }
+    if (!run) {
+      throw new Error(`Run ${input.runId} was not found.`);
+    }
+    if (latestEvaluation.evidence.length === 0) {
+      latestEvaluation.evidence = synthesizeEvidence(run, latestEvaluation.reason);
+    }
   }
 
   const existing = db.select().from(reviews).where(eq(reviews.runId, input.runId)).all()[0];
   const reviewId = existing?.id ?? randomUUID();
 
-  const record: ReviewRecord = {
+  const record: ReviewRecord & { casePath?: string } = {
     id: reviewId,
     evaluationId,
     runId: input.runId,
@@ -85,18 +95,44 @@ export function upsertReview(input: ReviewUpsertInput): ReviewRecord {
       .run();
   }
 
-  if (record.status === "confirmed" && latestEvaluation) {
-    const run = listRuns().find((item) => item.id === input.runId);
-    if (!run) {
-      throw new Error(`Run ${input.runId} was not found.`);
-    }
-
+  if (record.status === "confirmed" && latestEvaluation && run) {
     const evaluated = { ...run, evaluation: latestEvaluation };
     const evalCase = toEvalCase(evaluated, record);
     persistDraftCase(evalCase, latestEvaluation.id);
+    const absolute = writeCaseFile(evalCase);
+    record.casePath = relativeCasePath(absolute);
   }
 
   return record;
+}
+
+function synthesizeEvidence(run: NonNullable<ReturnType<typeof listRuns>[number]>, reason: string) {
+  const step =
+    run.steps.find((item) => item.error) ||
+    run.steps.find((item) => item.type === "tool_call") ||
+    run.steps[0];
+
+  if (!step) {
+    return [
+      {
+        stepId: "synthetic_root",
+        stepName: "run",
+        stepType: "message" as const,
+        quote: run.finalOutput.slice(0, 280) || reason
+      }
+    ];
+  }
+
+  return [
+    {
+      stepId: step.id,
+      traceId: step.traceId,
+      spanId: step.spanId,
+      stepName: step.name,
+      stepType: step.type,
+      quote: String(step.error ?? step.output ?? step.name).slice(0, 280)
+    }
+  ];
 }
 
 export function clearReviews() {

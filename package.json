@@ -33,13 +33,15 @@
     "pytest"
   ],
   "bin": {
-    "evalos": "./bin/evalos.mjs"
+    "evalos": "./bin/evalos.mjs",
+    "evalos-mcp": "./bin/evalos-mcp.mjs"
   },
   "files": [
     "app",
     "bin",
     "components",
     "fixtures",
+    "evals",
     ".claude",
     ".cursor",
     ".env.example",

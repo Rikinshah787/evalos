@@ -2,19 +2,36 @@
 
 /**
  * Cursor → EvalOS capture hook.
- * Posts a normalized run when the agent stops or a tool fails.
+ * On stop/sessionEnd: ingest the full live transcript.
+ * On tool failure: also post a thin failure span (then try full transcript).
  */
 
-const serverUrl = process.env.EVALOS_URL || "http://localhost:3001";
+const serverUrl = process.env.EVALOS_URL || "http://localhost:3000";
 
 const stdin = await readStdin();
 const payload = parseJson(stdin, {});
 const eventName = stringOr(payload.hook_event_name, stringOr(payload.event, "stop"));
 const isFailure = /failure|error/i.test(eventName) || Boolean(payload.error || payload.tool_error);
-
-const run = buildRun(payload, eventName, isFailure);
+const wantsFullSession = /stop|sessionEnd|session_end/i.test(eventName);
 
 try {
+  if (wantsFullSession || isFailure) {
+    const session = await ingestFullSession();
+    if (session?.ok) {
+      console.log(
+        JSON.stringify({
+          evalos: "session_ingested",
+          runId: session.runId,
+          steps: session.steps,
+          outcome: session.outcome,
+          source: "cursor-transcript"
+        })
+      );
+      process.exit(0);
+    }
+  }
+
+  const run = buildRun(payload, eventName, isFailure);
   const response = await fetch(`${serverUrl}/api/runs`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -27,11 +44,31 @@ try {
     process.exit(0);
   }
 
-  console.log(JSON.stringify({ evalos: "ingested", runId: run.id, source: "cursor" }));
+  console.log(JSON.stringify({ evalos: "ingested", runId: run.id, source: "cursor-hook" }));
 } catch (error) {
   console.error(
     `EvalOS is not reachable at ${serverUrl}: ${error instanceof Error ? error.message : "unknown error"}`
   );
+}
+
+async function ingestFullSession() {
+  try {
+    const response = await fetch(`${serverUrl}/api/setup/cursor/session`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ replace: false })
+    });
+    if (!response.ok) return null;
+    const body = await response.json();
+    return {
+      ok: true,
+      runId: body.runId,
+      steps: body.steps,
+      outcome: body.outcome
+    };
+  } catch {
+    return null;
+  }
 }
 
 function buildRun(hookInput, eventName, isFailure) {
@@ -53,7 +90,10 @@ function buildRun(hookInput, eventName, isFailure) {
   );
   const finalOutput = stringOr(
     hookInput.agent_message,
-    stringOr(hookInput.response, isFailure ? `Tool failure during Cursor session: ${toolName}` : "Cursor agent session completed.")
+    stringOr(
+      hookInput.response,
+      isFailure ? `Tool failure during Cursor session: ${toolName}` : "Cursor agent session completed."
+    )
   );
 
   const steps = [

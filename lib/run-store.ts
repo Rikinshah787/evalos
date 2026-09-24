@@ -1,4 +1,4 @@
-import { desc, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { getDatabase } from "./db/connection";
 import { runMessages, runs, runSteps } from "./db/schema";
 import type { AgentRun } from "./types";
@@ -11,6 +11,12 @@ export function listRuns(): AgentRun[] {
     .orderBy(desc(runs.startedAt))
     .all()
     .map((row) => JSON.parse(row.payloadJson) as AgentRun);
+}
+
+export function getRun(runId: string): AgentRun | undefined {
+  const db = getDatabase();
+  const row = db.select({ payloadJson: runs.payloadJson }).from(runs).where(eq(runs.id, runId)).all()[0];
+  return row ? (JSON.parse(row.payloadJson) as AgentRun) : undefined;
 }
 
 export function appendRuns(newRuns: AgentRun[]): AgentRun[] {
@@ -34,11 +40,59 @@ export function appendRuns(newRuns: AgentRun[]): AgentRun[] {
   });
 
   if (uniqueRuns.length === 0) return listRuns();
+  insertRunBatch(uniqueRuns);
+  return listRuns();
+}
 
+/** Insert or replace runs by id — used for live Cursor session capture. */
+export function upsertRuns(newRuns: AgentRun[]): AgentRun[] {
+  if (newRuns.length === 0) return listRuns();
+
+  const db = getDatabase();
+  const ids = newRuns.map((run) => run.id);
+  const existing = new Set(
+    db
+      .select({ id: runs.id })
+      .from(runs)
+      .where(inArray(runs.id, ids))
+      .all()
+      .map((row) => row.id)
+  );
+
+  const toInsert = newRuns.filter((run) => !existing.has(run.id));
+  const toReplace = newRuns.filter((run) => existing.has(run.id));
+
+  if (toReplace.length > 0) {
+    db.transaction((tx) => {
+      for (const run of toReplace) {
+        tx.delete(runSteps).where(eq(runSteps.runId, run.id)).run();
+        tx.delete(runMessages).where(eq(runMessages.runId, run.id)).run();
+        tx.delete(runs).where(eq(runs.id, run.id)).run();
+      }
+    });
+    insertRunBatch(toReplace);
+  }
+
+  if (toInsert.length > 0) {
+    insertRunBatch(toInsert);
+  }
+
+  return listRuns();
+}
+
+export function clearRuns() {
+  const db = getDatabase();
+  db.delete(runSteps).run();
+  db.delete(runMessages).run();
+  db.delete(runs).run();
+}
+
+function insertRunBatch(newRuns: AgentRun[]) {
+  const db = getDatabase();
   const now = new Date().toISOString();
 
   db.transaction((tx) => {
-    for (const run of uniqueRuns) {
+    for (const run of newRuns) {
       tx.insert(runs)
         .values({
           id: run.id,
@@ -100,15 +154,6 @@ export function appendRuns(newRuns: AgentRun[]): AgentRun[] {
       }
     }
   });
-
-  return listRuns();
-}
-
-export function clearRuns() {
-  const db = getDatabase();
-  db.delete(runSteps).run();
-  db.delete(runMessages).run();
-  db.delete(runs).run();
 }
 
 function jsonOrNull(value: unknown) {

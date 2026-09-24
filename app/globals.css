@@ -1012,3 +1012,30 @@ p {
   display: grid;
   gap: 10px;
 }
+
+.live-toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+}
+
+.live-toast.ok {
+  background: color-mix(in srgb, var(--ok, #16a34a) 14%, var(--panel));
+}
+
+.live-toast strong {
+  font-size: 13px;
+}
+
+.live-toast span {
+  flex: 1;
+  min-width: 180px;
+  color: var(--muted);
+  font-size: 13px;
+}

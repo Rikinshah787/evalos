@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -33,10 +33,12 @@ function failingRun(id: string): AgentRun {
 
 describe("review store", () => {
   let tempDir: string;
+  const originalCwd = process.cwd();
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "evalos-review-"));
     process.env.EVALOS_DB_PATH = join(tempDir, "evalos.db");
+    process.chdir(tempDir);
     closeDatabaseForTests();
   });
 
@@ -45,23 +47,27 @@ describe("review store", () => {
     clearEvaluations();
     clearRuns();
     closeDatabaseForTests();
+    process.chdir(originalCwd);
     delete process.env.EVALOS_DB_PATH;
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it("persists confirmed reviews and draft cases across reopen", () => {
+  it("persists confirmed reviews, draft cases, and repo case files", () => {
     const run = failingRun("run_review_1");
     appendRuns([run]);
     const evaluation = evaluateRun(run);
     saveEvaluations([evaluation]);
 
-    upsertReview({
+    const review = upsertReview({
       runId: run.id,
       status: "confirmed",
       category: "tool_error",
       expectedBehavior: "Recover from patch failures or ask for missing context.",
       reviewer: "tester"
     });
+
+    expect(review.casePath).toMatch(/^evals\/cases\//);
+    expect(JSON.parse(readFileSync(join(tempDir, review.casePath!), "utf8")).id).toBe(`case_${run.id}`);
 
     closeDatabaseForTests();
 
@@ -74,7 +80,7 @@ describe("review store", () => {
     expect(getLatestEvaluationForRun(run.id)?.evidence[0]?.stepId).toBe("step_1");
   });
 
-  it("rejects confirmation when evidence is missing", () => {
+  it("rejects confirmation when evaluation is missing", () => {
     const run = failingRun("run_review_2");
     appendRuns([run]);
 
@@ -86,6 +92,6 @@ describe("review store", () => {
         expectedBehavior: "Should not confirm.",
         reviewer: "tester"
       })
-    ).toThrow(/evidence/i);
+    ).toThrow(/evaluation/i);
   });
 });

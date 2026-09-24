@@ -3,7 +3,7 @@ import { loadCursorSessionRun } from "@/lib/cursor-transcript";
 import { evaluateRuns } from "@/lib/evaluator";
 import { clearEvaluations, saveEvaluations } from "@/lib/evaluation-store";
 import { clearReviews } from "@/lib/review-store";
-import { appendRuns, clearRuns } from "@/lib/run-store";
+import { clearRuns, upsertRuns } from "@/lib/run-store";
 import { fromUnknownError, apiError } from "@/lib/validation/errors";
 
 export async function POST(request: Request) {
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       clearRuns();
     }
 
-    appendRuns([run]);
+    upsertRuns([run]);
     const evaluated = evaluateRuns([run]);
     saveEvaluations(evaluated.map((item) => item.evaluation));
 

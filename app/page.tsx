@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   ArrowUp,
@@ -51,6 +51,10 @@ export default function Home() {
   const [claudeConnected, setClaudeConnected] = useState(false);
   const [busy, setBusy] = useState(false);
   const [composer, setComposer] = useState("");
+  const [captureToast, setCaptureToast] = useState("");
+  const [caseToast, setCaseToast] = useState("");
+  const knownRunIds = useRef(new Set<string>());
+  const bootstrappedRuns = useRef(false);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("evalos.theme");
@@ -80,6 +84,24 @@ export default function Home() {
             reviews?: Record<string, ReviewRecord>;
           };
           if (!cancelled && Array.isArray(payload.runs)) {
+            const nextIds = payload.runs.map((run) => run.id);
+            if (!bootstrappedRuns.current) {
+              knownRunIds.current = new Set(nextIds);
+              bootstrappedRuns.current = true;
+            } else {
+              const fresh = nextIds.filter((id) => !knownRunIds.current.has(id));
+              if (fresh.length > 0) {
+                knownRunIds.current = new Set(nextIds);
+                setCaptureToast(
+                  fresh.length === 1
+                    ? `New capture landed: ${fresh[0]}`
+                    : `${fresh.length} new captures landed`
+                );
+                setSelectedRunId(fresh[0]);
+              } else {
+                knownRunIds.current = new Set(nextIds);
+              }
+            }
             setRuns(payload.runs);
             setSelectedRunId((current) => current || payload.runs?.[0]?.id || "");
           }
@@ -269,8 +291,13 @@ export default function Home() {
         })
       });
       if (!response.ok) return;
-      const payload = (await response.json()) as { review?: ReviewRecord };
-      if (payload.review) setReviews((current) => ({ ...current, [run.id]: payload.review as ReviewRecord }));
+      const payload = (await response.json()) as { review?: ReviewRecord & { casePath?: string } };
+      if (payload.review) {
+        setReviews((current) => ({ ...current, [run.id]: payload.review as ReviewRecord }));
+        if (payload.review.casePath) {
+          setCaseToast(`Regression case written: ${payload.review.casePath}`);
+        }
+      }
     } catch {
       // Keep optimistic state.
     }
@@ -368,6 +395,30 @@ export default function Home() {
         </header>
 
         <div className="content">
+          {captureToast ? (
+            <div className="live-toast" role="status">
+              <strong>Auto-capture</strong>
+              <span>{captureToast}</span>
+              <button className="button" type="button" onClick={() => { setCaptureToast(""); setView("inspect"); }}>
+                Open Inspect
+              </button>
+              <button className="icon-button" type="button" aria-label="Dismiss" onClick={() => setCaptureToast("")}>
+                ×
+              </button>
+            </div>
+          ) : null}
+          {caseToast ? (
+            <div className="live-toast ok" role="status">
+              <strong>Confirmed</strong>
+              <span>{caseToast}</span>
+              <button className="button" type="button" onClick={() => { setCaseToast(""); setView("datasets"); }}>
+                View datasets
+              </button>
+              <button className="icon-button" type="button" aria-label="Dismiss" onClick={() => setCaseToast("")}>
+                ×
+              </button>
+            </div>
+          ) : null}
           {view === "dashboard" ? (
             <DashboardView
               cursorConnected={cursorConnected}
@@ -517,8 +568,8 @@ function DashboardView({
         </span>
       </h2>
       <p>
-        Capture real Cursor or Claude Code sessions, attach evidence to every finding, and promote only{" "}
-        <strong>confirmed</strong> failures into durable eval cases. Automatic scores are triage signals — humans decide.
+        Keep EvalOS running. Connect Cursor once. Agent stops auto-ingest the full transcript. Confirm writes a real
+        case into <code>evals/cases/</code>. Ask Cursor via MCP: “list EvalOS issues.”
       </p>
 
       <div className="jev-keys" aria-label="JEV model">
@@ -551,7 +602,7 @@ function DashboardView({
         </button>
         <button className="prompt-card" type="button" disabled={busy || cursorConnected} onClick={onConnectCursor}>
           <span><CheckCircle2 size={16} /></span>
-          Connect Cursor hooks for future sessions
+          Connect Cursor (hooks + MCP auto-capture)
         </button>
         <button className="prompt-card" type="button" disabled={busy || claudeConnected} onClick={onConnectClaude}>
           <span><CheckCircle2 size={16} /></span>
